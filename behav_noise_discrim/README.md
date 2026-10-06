@@ -10,7 +10,14 @@ Analysis of the same/different noise study
   - **Kinds of file:** `noise_discrim_*.csv` are finished sessions. `*.partial.json` are the
     staged trials of sessions that never finished, used only when there is no CSV for that
     session.
-  - **Debug runs** are skipped unless `--include-debug`.
+  - **Which sessions:** only complete sessions of the current task version (1.3.0 on:
+    practice + 8 blocks) are analysed.
+    - **Debug runs** come back with `--include-debug`.
+    - **Unfinished sessions** (partial files, or a CSV without the final screen) come back
+      with `--include-partial`.
+    - **Older versions** come back with `--min-version`.
+  - **Archive:** files from older versions are kept in `old_versions/` in the data folder.
+    The copy step never brings back a file archived there.
 - **Output:** the `analysis/` subfolder there
 
 ```bash

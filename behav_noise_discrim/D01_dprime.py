@@ -45,7 +45,7 @@ import pandas as pd
 from scipy.optimize import brentq
 from scipy.stats import binomtest, norm
 
-from load_data import DATA_DIR, DRIVE_DIR, OUT_DIR, load_all, sync_from_drive
+from load_data import DATA_DIR, DRIVE_DIR, MIN_VERSION, OUT_DIR, load_all, sync_from_drive
 from style import ACCENT, CORRECT, FOREGROUND, INCORRECT, apply_dark_theme
 
 UPPER_ALPHA = 2.2   # the upper half of the alphas: 2.22 to 4.0
@@ -240,6 +240,8 @@ def main():
     parser.add_argument("--include-debug", action="store_true", help="also analyse debug runs (?debug=1)")
     parser.add_argument("--drive-dir", type=Path, default=DRIVE_DIR, help="DataPipe's Google Drive folder")
     parser.add_argument("--no-sync", action="store_true", help="skip copying new files from the Drive folder")
+    parser.add_argument("--include-partial", action="store_true", help="also analyse unfinished sessions")
+    parser.add_argument("--min-version", default=MIN_VERSION, help="oldest task version to analyse (default %(default)s)")
     args = parser.parse_args()
     out = args.out_dir or args.data_dir / "analysis"
     out.mkdir(parents=True, exist_ok=True)
@@ -248,7 +250,8 @@ def main():
     if not args.no_sync:
         copied = sync_from_drive(args.drive_dir, args.data_dir)
         print(f"copied {len(copied)} new or changed file(s) from {args.drive_dir}" + (f": {', '.join(copied)}" if copied else ""))
-    trials, sessions = load_all(args.data_dir, include_debug=args.include_debug)
+    trials, sessions = load_all(args.data_dir, include_debug=args.include_debug,
+                                include_partial=args.include_partial, min_version=args.min_version)
     table = by_alpha(trials)
     sessions = flag(sessions, trials)
     table.round(4).to_csv(out / "dprime_by_alpha.csv", index=False)

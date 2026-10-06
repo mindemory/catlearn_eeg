@@ -3,7 +3,13 @@
 Behavioral analyses of the online slot-machine task
 ([`../catlearn_4x4_prolific`](../catlearn_4x4_prolific)).
 
-- **Data:** `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/catlearn_online_*.csv`
+- **Data:** sessions upload to `~/My Drive/DataPipe/catlearn_4x4/` (DataPipe). The scripts
+  first copy new or changed files from there into
+  `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/`, then analyse the
+  `catlearn_online_*.csv` files in that folder.
+  - **`--no-sync`** skips the copy.
+  - **Archived files:** anything archived in `old_versions/` there is not copied again.
+  - **Unfinished sessions** (`.partial.json` files) are listed but not analysed.
 - **Output:** the `analysis/` subfolder there, one folder per participant plus tables for
   all participants
 

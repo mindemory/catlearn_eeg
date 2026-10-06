@@ -65,7 +65,8 @@ def target_ms(df):
 
 
 def sync_from_drive(src=DRIVE_DIR, dst=DATA_DIR):
-    """Copy data files that are new or changed in the Drive folder; returns the names copied"""
+    """Copy data files that are new or changed in the Drive folder; returns the names copied.
+    Files archived in dst/old_versions/ are not copied again."""
     src, dst = Path(src), Path(dst)
     if not src.is_dir():
         print(f"Drive folder not found ({src}); using the files already in {dst}")
@@ -74,6 +75,8 @@ def sync_from_drive(src=DRIVE_DIR, dst=DATA_DIR):
     copied = []
     for pattern in PATTERNS:
         for f in sorted(src.glob(pattern)):
+            if (dst / "old_versions" / f.name).exists():    # archived on purpose: don't bring it back
+                continue
             target = dst / f.name
             if not target.exists() or target.stat().st_size != f.stat().st_size or target.stat().st_mtime < f.stat().st_mtime:
                 shutil.copy2(f, target)
@@ -82,11 +85,11 @@ def sync_from_drive(src=DRIVE_DIR, dst=DATA_DIR):
 
 
 def session_key(path):
-    """The session a file belongs to: its name without .csv / .partial.json"""
+    """The session a file belongs to: its CSV name without .csv. DataPipe names a partial file
+    <name>-<staging id>.partial.json, so the staging id is dropped too."""
     name = path.name
-    for suffix in (".partial.json", ".json", ".csv"):
-        if name.endswith(suffix):
-            name = name[: -len(suffix)]
+    if name.endswith(".partial.json"):
+        return name[: -len(".partial.json")].rsplit("-", 1)[0]
     return name.removesuffix(".csv")
 
 
@@ -150,21 +153,36 @@ def load_file(path):
     return t, session
 
 
-def load_all(data_dir=DATA_DIR, include_debug=False):
-    """Every data file in data_dir; debug runs (?debug=1, shortened) are left out unless include_debug"""
+MIN_VERSION = "1.3.0"   # the current design: practice + 8 blocks of 80 trials, 100 ms
+
+
+def _version(v):
+    return tuple(int(x) for x in str(v).split(".")) if v else (0,)
+
+
+def load_all(data_dir=DATA_DIR, include_debug=False, include_partial=False, min_version=MIN_VERSION):
+    """Every data file in data_dir (not its subfolders), keeping complete sessions of task version
+    >= min_version. Left out unless asked: debug runs (?debug=1, shortened) and unfinished
+    sessions (.partial.json, or a CSV without the final screen)."""
     files = sorted(f for pattern in PATTERNS for f in Path(data_dir).glob(pattern))
     finished = {session_key(f) for f in files if f.suffix == ".csv"}
     files = [f for f in files if f.suffix == ".csv" or session_key(f) not in finished]   # partial only if no .csv
     if not files:
         raise SystemExit(f"no noise_discrim_* data files in {data_dir}")
     loaded = [x for x in (load_file(f) for f in files) if x is not None]
-    if not include_debug:
-        skipped = [s["file"] for _, s in loaded if s["debug"]]
+    rules = [("older task version", lambda s: _version(s["task_version"]) < _version(min_version), "--min-version"),
+             ("debug run", lambda s: s["debug"], "--include-debug")]
+    if not include_partial:
+        rules.append(("unfinished session", lambda s: s["partial"] or not s["finished"], "--include-partial"))
+    for label, drop, flag in rules:
+        if label == "debug run" and include_debug:
+            continue
+        skipped = [s["file"] for _, s in loaded if drop(s)]
         if skipped:
-            print(f"skipping {len(skipped)} debug run(s): {', '.join(skipped)} (--include-debug to keep)")
-        loaded = [(t, s) for t, s in loaded if not s["debug"]]
-        if not loaded:
-            raise SystemExit("only debug runs found (--include-debug to analyse them)")
+            print(f"skipping {len(skipped)} {label}(s) ({flag} to keep): {', '.join(skipped)}")
+        loaded = [(t, s) for t, s in loaded if not drop(s)]
+    if not loaded:
+        raise SystemExit("no sessions left to analyse (see the skipped files above)")
     trials = pd.concat([t for t, _ in loaded], ignore_index=True)
     sessions = pd.DataFrame([s for _, s in loaded])
     return trials, sessions

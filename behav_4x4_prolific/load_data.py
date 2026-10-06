@@ -9,14 +9,22 @@ Signal detection: a "win" pair is the signal and YES is the positive answer.
   fa   = lose pair, answered YES        cr   = lose pair, answered NO or late
 Late rounds never contain a YES, so they count as misses (win pairs) or correct
 rejections (lose pairs) here, and are also counted separately (timeout).
+
+Files arrive in the Google Drive folder DataPipe writes to (DRIVE_DIR). load_all() first
+copies new or changed ones into DATA_DIR (sync=False skips this; files archived in
+DATA_DIR/old_versions/ are never copied again). Finished sessions are CSVs; a session that
+never finished leaves only a .partial.json, which is copied but not analysed here.
 """
 
+import shutil
 from pathlib import Path
 
 import pandas as pd
 
 DATA_DIR = Path.home() / "Documents" / "data" / "catlearn_eeg" / "catlearn_4x4_prolific"
 OUT_DIR = DATA_DIR / "analysis"
+DRIVE_DIR = Path.home() / "My Drive" / "DataPipe" / "catlearn_4x4"
+PATTERNS = ("catlearn_online_*.csv", "catlearn_online_*.partial.json")
 
 ROUND_COLUMNS = ["block", "phase", "block_in_phase", "rule", "rule_type", "size", "trial_in_block", "rep",
                  "compound", "level_a", "level_b", "fractal_a", "fractal_b", "category", "response", "choice",
@@ -81,7 +89,33 @@ def load_file(path):
     return r, session
 
 
-def load_all(data_dir=DATA_DIR):
+def sync_from_drive(src=DRIVE_DIR, dst=DATA_DIR):
+    """Copy data files that are new or changed in the Drive folder; returns the names copied"""
+    src, dst = Path(src), Path(dst)
+    if not src.is_dir():
+        print(f"Drive folder not found ({src}); using the files already in {dst}")
+        return []
+    dst.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for pattern in PATTERNS:
+        for f in sorted(src.glob(pattern)):
+            if (dst / "old_versions" / f.name).exists():    # archived on purpose: don't bring it back
+                continue
+            target = dst / f.name
+            if not target.exists() or target.stat().st_size != f.stat().st_size or target.stat().st_mtime < f.stat().st_mtime:
+                shutil.copy2(f, target)
+                copied.append(f.name)
+    return copied
+
+
+def load_all(data_dir=DATA_DIR, sync=True, drive_dir=DRIVE_DIR):
+    if sync:
+        copied = sync_from_drive(drive_dir, data_dir)
+        print(f"copied {len(copied)} new or changed file(s) from {drive_dir}" + (f": {', '.join(copied)}" if copied else ""))
+    partial = [f.name for f in Path(data_dir).glob("catlearn_online_*.partial.json")
+               if not (Path(data_dir) / (f.name.split(".partial.json")[0].rsplit("-", 1)[0] + ".csv")).exists()]
+    if partial:
+        print(f"{len(partial)} unfinished session(s) (partial files, not analysed): {', '.join(sorted(partial))}")
     files = sorted(Path(data_dir).glob("catlearn_online_*.csv"))
     if not files:
         raise FileNotFoundError(f"no catlearn_online_*.csv in {data_dir}")

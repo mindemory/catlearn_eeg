@@ -13,6 +13,7 @@ export function urlParams() {
     debug: flag('debug'),
     simulate: q.has('simulate') ? (q.get('simulate') === 'visual' ? 'visual' : 'data-only') : null,
     seed: q.has('seed') ? parseInt(q.get('seed'), 10) : null,
+    save: q.get('save') === 'local' ? 'local' : null,   // ?save=local: download instead of uploading
     // fix the test type (e.g. ?type=XV) and/or which version comes first (?first=A or B)
     type: q.get('type') || null,
     first: q.get('first') ? q.get('first').toUpperCase() : null,
@@ -53,30 +54,17 @@ export function sessionProperties(params, seed) {
 }
 
 // ---------------------------------------------------------------- saving
-export function dataFilename(params) {
-  const id = params.prolificPid || 'pilot';
+// File name without any participant label (the Prolific ID is inside the data): prefix, start
+// time (UTC) and a random tag, e.g. catlearn_online_20261006-195146_756c.csv
+export function dataFilename() {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-  return `${DATA.filePrefix}_${id}_${stamp}.csv`;
+  const tag = Math.random().toString(36).slice(2, 6);   // two runs in the same second never collide
+  return `${DATA.filePrefix}_${stamp}_${tag}.csv`;
 }
 
-/**
- * Save all data. 'local' downloads the CSV (for pilots). To run on Prolific, add the
- * chosen backend here and set DATA.save in config.js, e.g.
- *   DataPipe (OSF):  POST to https://pipe.jspsych.org/api/data/ with
- *                    {experimentID, filename, data: csv}
- *   JATOS:           jatos.submitResultData(csv)
- *   Pavlovia:        use the jsPsych-Pavlovia plugin's 'finish' command
- * Resolves when the data are safely stored; rejects otherwise.
- */
-export async function saveData(jsPsych, filename) {
-  const csv = jsPsych.data.get().csv();
-  switch (DATA.save) {
-    case 'local':
-      jsPsych.data.get().localSave('csv', filename);
-      return { mode: 'local', bytes: csv.length };
-    default:
-      throw new Error(`DATA.save = '${DATA.save}' is not implemented yet (see data.js)`);
-  }
+// Download the CSV to this computer (local runs, and the backup when an upload fails)
+export function saveLocal(jsPsych, filename) {
+  jsPsych.data.get().localSave('csv', filename);
 }
 
 export function completionUrl(code) {

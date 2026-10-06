@@ -134,11 +134,12 @@ def block_summary(r):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--no-sync", action="store_true", help="skip copying new files from the DataPipe Drive folder")
     parser.add_argument("--window", type=int, default=8, help="running window, rounds")
     args = parser.parse_args()
     apply_dark_theme()
 
-    rounds, sessions = load_all(args.data_dir)
+    rounds, sessions = load_all(args.data_dir, sync=not args.no_sync)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     summary = block_summary(rounds)
     summary.to_csv(OUT_DIR / "block_summary_all.csv", index=False)

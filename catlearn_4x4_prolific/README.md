@@ -96,8 +96,9 @@ Then open the experiment in Chrome or Firefox:
 Stop the server with Ctrl+C. After changing code, hard-reload the page (Cmd+Shift+R);
 browsers cache the code.
 
-At the end the data download as a CSV, `catlearn_online_pilot_<date-time>.csv`, to your
-Downloads folder.
+Locally, add `?save=local`, and the data download at the end as
+`catlearn_online_<date-time>_<tag>.csv` to your Downloads folder. Without it, a local run
+uploads to the DataPipe Drive folder like a real session (see "Saving the data").
 
 The page loads jsPsych from unpkg.com, so the pilot machine needs internet. Opening
 `index.html` by double-clicking does not work; browsers block the code modules over
@@ -113,7 +114,8 @@ The page loads jsPsych from unpkg.com, so the pilot machine needs internet. Open
 | `?seed=123` | fixed design (test type and order, rules, fractals, round order, keys) |
 | `?type=XV` | fixed test type (any key of `TEST_TYPES`, also outside the current `STUDY` phase) |
 | `?first=A` | fixed version order: A-dominant version in blocks 1–2 (`B` for the reverse) |
-| `?simulate=1` | jsPsych plays the whole experiment by itself and saves the data (checks the data pipeline in seconds) |
+| `?save=local` | download the data instead of uploading them (testing without adding a session to the dataset) |
+| `?simulate=1` | jsPsych plays the whole experiment by itself and downloads the data (never uploads) |
 | `?simulate=visual` | the same, but at real speed on screen |
 
 Options combine, e.g. `?debug=1&skip=intro,calibration&seed=5`. With no `PROLIFIC_PID` in
@@ -179,7 +181,7 @@ they stay correct when the design changes.
 | `src/display.js` | HTML for every screen (machine and lever, symbols, bull's eye, feedback circles) in degrees, and the coin bar |
 | `src/task.js` | blocks: intro → rounds (wait → pull → response → feedback) → block summary; practice criterion |
 | `src/instructions.js` | consent, instructions, comprehension quiz (repeats until correct, up to 3 times) |
-| `src/data.js` | Prolific IDs from the URL, tab-switch / full-screen tracking, saving |
+| `src/data.js` | Prolific IDs from the URL, tab-switch / full-screen tracking, file name, local download (online saving is the DataPipe extension, set up in `src/main.js`) |
 | `src/main.js` | puts it together: browser check → consent → full screen → calibration → instructions + quiz → blocks → final screen → save → Prolific |
 | `tools/bonus_payments.py` | Prolific bonus list from the data files (see below) |
 | `stimuli/fractal_groups/` | the 96 fractals the task uses, plus `groups.js` / `groups.json` (which fractals form each group) |
@@ -234,15 +236,38 @@ Possible exclusion criteria to decide before data collection:
 - `low_refresh`
 - `calibration_source` other than `measured`, or a small `layout_scale`
 
+## Saving the data
+
+The study is live at `https://www.mindemory.io/catlearn_eeg/catlearn_4x4_prolific/` (GitHub
+Pages from this repository's `main` branch; a push updates it within about a minute).
+
+Data go through DataPipe (experiment `catlearn_4x4`, ID `PbuWRFfUHDfo`) to the Google Drive
+folder `~/My Drive/DataPipe/catlearn_4x4/`, using DataPipe's jsPsych extension (loaded in
+`index.html`; `DATA` in `src/config.js`):
+- **Completed sessions:** trials are staged on DataPipe as the session runs, and the whole
+  CSV is uploaded at the end.
+- **Participants who quit partway:** they leave a `<file>-<id>.partial.json`, which doesn't
+  count as a session.
+- **File names carry no participant label:** `catlearn_online_<start time UTC>_<tag>.csv`.
+  The Prolific ID and the file name (`session_file`) are inside the data.
+- **If the final upload fails,** a copy downloads on the participant's computer, and the end
+  screen asks them to send it through Prolific or by email, so they can be paid.
+- **Test runs:** simulated runs and `?save=local` runs never upload.
+- **Dashboard:** "Accept new data" must be on. Set "Stop after a set number of sessions" a
+  little above your target, and switch off base64 uploads (not used).
+- **Analysis:** `behav_4x4_prolific` copies new files from the Drive folder before every run
+  (`--no-sync` skips this).
+
 ## Paying the bonus
 
 Prolific pays bonuses separately from the base pay, after you approve submissions.
 
-1. Put all participants' CSV files in one folder.
+1. Make sure all finished sessions' CSV files are in one folder, e.g. the Drive folder
+   itself, or `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/` after an analysis run.
 2. Run the payment script:
 
    ```bash
-   python3 tools/bonus_payments.py ~/path/to/data_folder
+   python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4
    ```
 
    It recomputes every bonus from the paid rounds, checks it against the `bonus_usd` the
@@ -260,15 +285,8 @@ If you change `REWARD` in `src/config.js`, pass the same conversion to the scrip
 
 ## Going live on Prolific: checklist
 
-1. **Hosting and data.** `DATA.save = 'local'` only downloads to the participant's
-   computer, which is useless online. Pick one backend and add it in
-   [`src/data.js`](src/data.js) `saveData()`:
-
-   | Backend | How it works | Cost |
-   |---|---|---|
-   | **DataPipe** | page on GitHub Pages, data to your OSF project | free, ~10 lines |
-   | **JATOS** | your own server or MindProbe | free |
-   | **Pavlovia** | hosts and stores | paid per participant unless Dartmouth has a site licence |
+1. **Hosting and data.** Done: GitHub Pages and DataPipe (see "Saving the data"). Run one
+   full session from the public URL and check that the CSV arrives in the Drive folder.
 
 2. **Prolific study URL.** Your hosted address followed by
    `?PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}`.

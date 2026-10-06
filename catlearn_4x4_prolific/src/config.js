@@ -12,7 +12,7 @@
 // Each trial is self-paced: the participant presses SPACE to pull the lever (or the round
 // starts by itself after TIMING.wait), the symbols appear, they answer, feedback follows.
 
-export const VERSION = '3.1.0';   // 3.1: equidistant fractal groups
+export const VERSION = '3.2.0';   // 3.1: equidistant fractal groups; 3.2: DataPipe saving
 
 // ---------------------------------------------------------------- rules
 // Outcome (1 = win, 0 = lose) of every pair: compound = size * a + b, where a and b (0 ..
@@ -187,9 +187,17 @@ export const CONTACT = {
   email: 'mrugank.dake@dartmouth.edu',
 };
 
-// Where data go at the end: 'local' downloads a CSV (pilots). Add a backend in data.js
-// (DataPipe, JATOS or Pavlovia) before running on Prolific.
-export const DATA = { save: 'local', filePrefix: 'catlearn_online' };
+// Where data go:
+//   'local'     the CSV downloads to the participant's computer (piloting on your own machine)
+//   'datapipe'  DataPipe (pipe.jspsych.org, experiment catlearn_4x4) through its jsPsych
+//               extension, into the linked Google Drive folder: trials are staged as the session
+//               runs, so a participant who quits partway still leaves a <file>.partial.json (it
+//               does not count as a session), and the whole CSV is uploaded at the end. If the
+//               final upload fails, a copy downloads and the participant is asked to email it.
+// File names carry no participant label: catlearn_online_<start time>_<random tag>.csv (the
+// Prolific ID is inside the data). Simulated runs (?simulate=1) always save locally; ?save=local
+// does the same for any run (testing the hosted page without adding a session).
+export const DATA = { save: 'datapipe', filePrefix: 'catlearn_online', datapipeId: 'PbuWRFfUHDfo' };
 
 // URL options (for piloting): ?debug=1 shortens every block to 1 pass (practice: 3 passes),
 // ?simulate=1 (or =visual) lets jsPsych play the whole experiment, ?seed=123 fixes the design,

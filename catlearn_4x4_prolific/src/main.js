@@ -1,10 +1,14 @@
 // Entry point: builds the participant's design, assembles the timeline and runs it.
 //   browser check -> consent -> full screen -> screen calibration -> instructions + quiz
 //   -> blocks -> bonus -> save -> Prolific
+// Saving: online runs use DataPipe's jsPsych extension, which stages trials as the session
+// runs (so a participant who quits partway still leaves a .partial.json) and uploads the
+// whole CSV when the session ends. Local runs (DATA.save = 'local', ?save=local, simulations)
+// download the CSV instead.
 
 import { calibrationTimeline } from './calibration.js';
-import { BROWSER, PROLIFIC } from './config.js';
-import { completionUrl, dataFilename, isProlific, onInteraction, saveData, sessionProperties, urlParams } from './data.js';
+import { BROWSER, CONTACT, DATA, PROLIFIC } from './config.js';
+import { completionUrl, dataFilename, isProlific, onInteraction, saveLocal, sessionProperties, urlParams } from './data.js';
 import { buildDesign, designImages, newSeed } from './design.js';
 import { consentTrial, instructionsWithCheck } from './instructions.js';
 import { bonusDollars, formatCoins, formatDollars } from './reward.js';
@@ -14,13 +18,40 @@ const params = urlParams();
 const seed = params.seed ?? newSeed();
 const design = buildDesign(seed, { debug: params.debug, type: params.type, first: params.first });
 
-const saved = { ok: false, mode: null, error: null, declined: false };
+const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false };
+const filename = dataFilename();                 // no participant label: prefix, start time, random tag
+const online = DATA.save === 'datapipe' && !params.simulate && params.save !== 'local';
+
+// The DataPipe extension owns the online upload (no save trial then). on_save runs when the
+// final upload has finished, before showEnd(); if it failed, a copy downloads as a backup.
+const pipe = {
+  type: jsPsychExtensionPipe,
+  params: {
+    experiment_id: DATA.datapipeId,
+    filename,
+    // a participant who declines consent leaves only that decision, nothing else
+    data_string: () => (saved.declined
+      ? jsPsych.data.get().filter({ part: 'consent' }).ignore('user_agent').csv()
+      : jsPsych.data.get().csv()),
+    wait_message: '<div class="page center"><p>Saving your answers, please do not close this window...</p></div>',
+    on_save: (result) => {
+      if (result.ok) {
+        Object.assign(saved, { ok: true, mode: 'datapipe' });
+      } else {
+        saveLocal(jsPsych, filename);
+        Object.assign(saved, { ok: false, error: `DataPipe answered ${result.status}`, backupFile: filename });
+      }
+    },
+  },
+};
 
 const jsPsych = initJsPsych({
   on_interaction_data_update: onInteraction,
   on_finish: () => showEnd(),
+  extensions: online ? [pipe] : [],
 });
-jsPsych.data.addProperties({ ...sessionProperties(params, seed), key_yes: design.keys.yes, key_no: design.keys.no,
+jsPsych.data.addProperties({ ...sessionProperties(params, seed), session_file: filename,
+                             key_yes: design.keys.yes, key_no: design.keys.no,
                              test_type: design.testType, test_first: design.testFirst });
 window.catlearn = { jsPsych, design, params };   // for inspection in the browser console
 
@@ -97,15 +128,12 @@ const finale = {
 
 const fullscreenOff = { type: jsPsychFullscreen, fullscreen_mode: false, delay_after: 0, data: { part: 'fullscreen_off' } };
 
-// Saving waits until the data are stored (or fail) before the experiment ends
+// Local runs only: download the CSV (online runs are saved by the DataPipe extension)
 const save = {
   type: jsPsychCallFunction,
-  async: true,
-  func: (done) => {
-    document.querySelector('.jspsych-content').innerHTML = '<p>Saving your data, please do not close this window...</p>';
-    saveData(jsPsych, dataFilename(params))
-      .then((result) => { Object.assign(saved, { ok: true, mode: result.mode }); done(result); })
-      .catch((err) => { console.error(err); Object.assign(saved, { ok: false, error: err.message }); done({ error: err.message }); });
+  func: () => {
+    saveLocal(jsPsych, filename);
+    Object.assign(saved, { ok: true, mode: 'local' });
   },
   data: { part: 'save' },
 };
@@ -114,8 +142,12 @@ function showEnd() {
   if (saved.declined) return;                     // abortExperiment already shows its message
   let message;
   if (!saved.ok) {
-    message = '<p>Saving failed. Please contact the researcher on Prolific and do not close this window.</p>'
-      + `<p class="small">${saved.error}</p>`;
+    message = saved.backupFile
+      ? '<p>Saving online failed, so a copy of your answers was downloaded to your computer as '
+        + `<b>${saved.backupFile}</b> (usually in your Downloads folder).</p>`
+        + `<p>Please send that file through Prolific or to ${CONTACT.email}, so we can pay you. Thank you!</p>`
+      : '<p>Saving failed. Please contact the researcher on Prolific and do not close this window.</p>';
+    message += `<p class="small">${saved.error}</p>`;
   } else if (isProlific(params)) {
     message = '<p>Your answers are saved. Returning you to Prolific...</p>';
     setTimeout(() => { window.location.href = completionUrl(PROLIFIC.completionCode); }, 2000);
@@ -128,7 +160,7 @@ function showEnd() {
 const consent = params.skipIntro ? [] : [consentTrial(declined)];
 const instructions = params.skipIntro ? [] : [instructionsWithCheck(design, design.example)];
 const timeline = [browserCheck, preload, ...consent, fullscreenOn, calibration, ...instructions, designRow, task,
-                  finale, fullscreenOff, save];
+                  finale, fullscreenOff, ...(online ? [] : [save])];
 
 if (params.simulate) {
   jsPsych.simulate(timeline, params.simulate);

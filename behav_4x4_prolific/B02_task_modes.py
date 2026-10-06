@@ -192,11 +192,12 @@ def plot_time(table, session, out_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--no-sync", action="store_true", help="skip copying new files from the DataPipe Drive folder")
     parser.add_argument("--passes", type=int, default=2, help="passes through the pairs per time window")
     args = parser.parse_args()
     apply_dark_theme()
 
-    rounds, sessions = load_all(args.data_dir)
+    rounds, sessions = load_all(args.data_dir, sync=not args.no_sync)
     table = block_table(rounds, args.passes)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     table.to_csv(OUT_DIR / "task_modes_all.csv", index=False)
