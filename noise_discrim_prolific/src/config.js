@@ -10,15 +10,25 @@
 // Patches are generated in the browser (noise.js) from a seed per trial, so every
 // stimulus can be regenerated exactly afterwards (tools/noise_field.py).
 
-export const VERSION = '1.2.0';   // 1.1: 100 ms, 5 blocks, frame-accurate plugin; 1.2: 20 + 20 per alpha
+export const VERSION = '1.3.0';   // 1.1: 100 ms, frame-accurate plugin; 1.2: 20 + 20 per alpha; 1.3: practice, 8 blocks
 
 // ---------------------------------------------------------------- design
 // Spectral slopes: 0 to 4 in 10 equal steps (4/9 = 0.444)
 export const ALPHAS = Array.from({ length: 10 }, (_, i) => Number(((4 * i) / 9).toFixed(4)));
 
 // `n` blocks; each has `perLevel` same and `perLevel` different trials of every alpha, in
-// random order: 10 x 4 x 2 = 80 trials per block, 400 in all (20 same + 20 different per alpha)
-export const BLOCKS = { n: 5, perLevel: 4 };
+// random order: 10 x 4 x 2 = 80 trials per block, 640 in all (32 same + 32 different per alpha)
+export const BLOCKS = { n: 8, perLevel: 4 };
+
+// Practice before block 1: the same mix (1 same + 1 different per alpha = 20 trials), timing
+// and feedback, saved with phase = 'practice' and left out of the analysis. It takes up the
+// first trials of getting used to the task without changing the mix of trials the participant
+// sees (an easy-only practice would teach them to expect visible differences).
+export const PRACTICE = { perLevel: 1 };
+
+// Session length stated in the consent and instructions (generous: the trials take ~18 min,
+// calibration and instructions ~5)
+export const SESSION_MINUTES = 30;
 
 // ---------------------------------------------------------------- stimuli
 // Noise patches as in task_design/noise_patches.py (the learning task's patches): white
@@ -86,6 +96,12 @@ export const CALIBRATION = {
 
 export const COMPREHENSION = { maxAttempts: 3 };   // instruction re-reads before continuing anyway (flagged)
 
+// Who takes part, which sets the participant-facing wording:
+//   'pilot'     unpaid volunteers with a shared link (about 8-10 people): the consent says there is
+//               no compensation, and no screen mentions Prolific
+//   'prolific'  paid Prolific participants (completion codes and redirects below)
+export const RECRUITMENT = 'pilot';
+
 export const PROLIFIC = {
   completionCode: 'REPLACE_WITH_COMPLETION_CODE',   // from the Prolific study page
   noConsentCode: 'REPLACE_WITH_NO_CONSENT_CODE',    // optional "returned" code for declined consent
@@ -98,12 +114,15 @@ export const CONTACT = {
   email: 'mrugank.dake@dartmouth.edu',
 };
 
-// Where data go at the end:
+// Where data go:
 //   'local'     the CSV downloads to the participant's computer (piloting on your own machine)
-//   'datapipe'  the CSV is sent through DataPipe (pipe.jspsych.org) to the storage linked to
-//               the experiment (here a Google Drive folder), once, at the end of the session.
-//               If the upload fails, a copy downloads instead and the participant is asked to
-//               email it (CONTACT).
+//   'datapipe'  DataPipe (pipe.jspsych.org) through its jsPsych extension: trials are staged
+//               as the session runs, so a participant who quits partway still leaves a
+//               <file>.partial.json (DataPipe writes it after a while; it does not count as a
+//               session), and the whole CSV is uploaded at the end. Both land in the storage
+//               linked to the experiment (here a Google Drive folder). If the final upload
+//               fails, a copy downloads and the participant is asked to email it (CONTACT).
+// File names carry no participant label: noise_discrim_<start time>_<random tag>.csv.
 // Simulated runs (?simulate=1) always save locally, so they never reach the dataset; ?save=local
 // does the same for any run (e.g. testing the hosted page without adding a session).
 export const DATA = { save: 'datapipe', filePrefix: 'noise_discrim', datapipeId: 'A6UGkxMHa4mJ' };

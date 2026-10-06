@@ -30,8 +30,10 @@ Outputs (OUT_DIR = ~/Documents/data/catlearn_eeg/noise_discrim_prolific/analysis
   dprime_group.png           group mean +- SEM of d_yn, d_sd, c and pc, participants as thin lines
   <participant>/dprime.png   one participant: hit and false-alarm rates, d', c, RT
   <participant>/curves.png   one participant: accuracy (all, same, different) and d' by alpha
+  <participant>/learning.png one participant: accuracy by block, and d' by alpha in the first vs
+                             second half of the blocks (practice trials are never included)
 
-  ~/miniforge3/envs/kernelbehav/bin/python D01_dprime.py
+  ~/miniforge3/envs/kernelbehav/bin/python D01_dprime.py      (copies new files from Drive first)
 """
 
 import argparse
@@ -43,7 +45,7 @@ import pandas as pd
 from scipy.optimize import brentq
 from scipy.stats import binomtest, norm
 
-from load_data import DATA_DIR, OUT_DIR, load_all
+from load_data import DATA_DIR, DRIVE_DIR, OUT_DIR, load_all, sync_from_drive
 from style import ACCENT, CORRECT, FOREGROUND, INCORRECT, apply_dark_theme
 
 UPPER_ALPHA = 2.2   # the upper half of the alphas: 2.22 to 4.0
@@ -176,6 +178,41 @@ def plot_curves(t, out_path, pid):
     plt.close(fig)
 
 
+def plot_learning(trials, out_path, pid):
+    """Does performance change over the session? Accuracy by block, and d' by alpha in the
+    first vs the second half of the blocks"""
+    blocks = sorted(trials["block"].unique())
+    half = blocks[len(blocks) // 2]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    ax = axes[0]
+    use = trials[~trials["timeout"]]
+    k, n = use.groupby("block")["correct"].sum(), use.groupby("block")["correct"].count()
+    ci = np.array([wilson(k[b], n[b]) for b in k.index])
+    p = k / n
+    ax.errorbar(k.index, p, yerr=[p - ci[:, 0], ci[:, 1] - p], fmt="o-", color=ACCENT, capsize=3, lw=2)
+    ax.axhline(0.5, color=FOREGROUND, lw=0.7, ls=":", alpha=0.6)
+    ax.axvline(half - 0.5, color=FOREGROUND, lw=0.7, ls="--", alpha=0.4)
+    ax.set_xticks(blocks)
+    ax.set_ylim(0.3, 1.02)
+    ax.set_xlabel("block")
+    ax.set_ylabel("proportion correct (all alphas)")
+    ax = axes[1]
+    for label, sub, color, dx in ((f"{blocks[0]}-{half - 1}", trials[trials["block"] < half], FOREGROUND, -0.04),
+                                  (f"{half}-{blocks[-1]}", trials[trials["block"] >= half], ACCENT, 0.04)):
+        t = by_alpha(sub).sort_values("alpha")
+        ax.errorbar(t["alpha"] + dx, t["d_yn"], yerr=[t["d_yn"] - t["d_lo"], t["d_hi"] - t["d_yn"]], fmt="o-",
+                    color=color, capsize=2, label=f"blocks {label} ({int(t['n_same'].median())} + "
+                                                  f"{int(t['n_different'].median())} trials per alpha)")
+    ax.axhline(0, color=FOREGROUND, lw=0.7, ls=":", alpha=0.6)
+    ax.set_xlabel("alpha (spectral slope)")
+    ax.set_ylabel("yes/no d' (95% interval)")
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    fig.suptitle(f"{pid}: change over the session")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+
+
 def plot_group(table, sessions, out_path):
     keep = sessions.loc[~sessions["exclude"], "participant"]
     t = table[table["participant"].isin(keep)]
@@ -201,11 +238,16 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--out-dir", type=Path, default=None, help=f"default: {OUT_DIR}")
     parser.add_argument("--include-debug", action="store_true", help="also analyse debug runs (?debug=1)")
+    parser.add_argument("--drive-dir", type=Path, default=DRIVE_DIR, help="DataPipe's Google Drive folder")
+    parser.add_argument("--no-sync", action="store_true", help="skip copying new files from the Drive folder")
     args = parser.parse_args()
     out = args.out_dir or args.data_dir / "analysis"
     out.mkdir(parents=True, exist_ok=True)
     apply_dark_theme()
 
+    if not args.no_sync:
+        copied = sync_from_drive(args.drive_dir, args.data_dir)
+        print(f"copied {len(copied)} new or changed file(s) from {args.drive_dir}" + (f": {', '.join(copied)}" if copied else ""))
     trials, sessions = load_all(args.data_dir, include_debug=args.include_debug)
     table = by_alpha(trials)
     sessions = flag(sessions, trials)
@@ -215,10 +257,11 @@ def main():
         (out / str(pid)).mkdir(exist_ok=True)
         plot_participant(t.sort_values("alpha"), out / str(pid) / "dprime.png", pid)
         plot_curves(t.sort_values("alpha"), out / str(pid) / "curves.png", pid)
+        plot_learning(trials[trials["participant"] == pid], out / str(pid) / "learning.png", pid)
     plot_group(table, sessions, out / "dprime_group.png")
 
     print(f"{sessions['participant'].nunique()} participants, {len(trials)} trials -> {out}")
-    print(sessions[["participant", "n_trials", "pcorrect", "pc_upper", "p_upper", "late_rate", "timing_bad_rate",
+    print(sessions[["participant", "n_trials", "finished", "pcorrect", "pc_upper", "p_upper", "late_rate", "timing_bad_rate",
                     "calibration_source", "exclude"]].round(3).to_string(index=False))
     print("\nGroup (included participants), by alpha:")
     keep = table["participant"].isin(sessions.loc[~sessions["exclude"], "participant"])

@@ -1,8 +1,8 @@
-// One participant's design from a seed: which key means SAME, and every trial (alpha, same or
-// different, and the seeds of its two patches). Pure functions, no jsPsych, so the same seed
+// One participant's design from a seed: which key means SAME, and every trial of the practice
+// and the main blocks (alpha, same or different, and the seeds of its two patches). Pure functions, no jsPsych, so the same seed
 // always gives the same design.
 
-import { ALPHAS, BLOCKS, KEYS } from './config.js';
+import { ALPHAS, BLOCKS, KEYS, PRACTICE } from './config.js';
 import { makeRng } from './noise.js';
 
 export function shuffle(arr, rng) {
@@ -23,9 +23,10 @@ const seed32 = (rng) => Math.floor(rng() * 2 ** 32) >>> 0;
 /**
  * @param {number} seed
  * @param {{debug?: boolean}} opts  debug: 2 blocks of 20 trials (1 same + 1 different per alpha)
- * @returns {{seed, keys: {same, different}, debug, blocks: Array<Array<trial>>, example}}
- *   trial: {block, trial_in_block, alpha, alpha_level (1-10), pair ('same' | 'different'),
- *   seed_left, seed_right}; example: patch seeds for the instruction examples
+ * @returns {{seed, keys: {same, different}, debug, practice: Array<trial>, blocks: Array<Array<trial>>, example}}
+ *   trial: {phase ('practice' | 'main'), block (0 = practice), trial_in_block, alpha,
+ *   alpha_level (1-10), pair ('same' | 'different'), seed_left, seed_right};
+ *   example: patch seeds for the instruction examples
  */
 export function buildDesign(seed, opts = {}) {
   const rng = makeRng(seed);
@@ -34,23 +35,27 @@ export function buildDesign(seed, opts = {}) {
   const nBlocks = opts.debug ? 2 : BLOCKS.n;
   const perLevel = opts.debug ? 1 : BLOCKS.perLevel;
 
-  const blocks = [];
-  for (let b = 0; b < nBlocks; b++) {
+  // perLevel same and perLevel different trials of every alpha, in random order
+  const makeBlock = (block, nPer, phase) => {
     const cells = [];
     ALPHAS.forEach((alpha, level) => {
-      for (let r = 0; r < perLevel; r++) {
+      for (let r = 0; r < nPer; r++) {
         cells.push({ alpha, alpha_level: level + 1, pair: 'same' });
         cells.push({ alpha, alpha_level: level + 1, pair: 'different' });
       }
     });
-    blocks.push(shuffle(cells, rng).map((t, k) => {
+    return shuffle(cells, rng).map((t, k) => {
       const left = seed32(rng);
       const right = t.pair === 'same' ? left : seed32(rng);
-      return { block: b + 1, trial_in_block: k + 1, ...t, seed_left: left, seed_right: right };
-    }));
-  }
+      return { phase, block, trial_in_block: k + 1, ...t, seed_left: left, seed_right: right };
+    });
+  };
+  // Practice: the main task's mix (1 same + 1 different per alpha), not analysed
+  const practice = makeBlock(0, PRACTICE.perLevel, 'practice');
+  const blocks = Array.from({ length: nBlocks }, (_, b) => makeBlock(b + 1, perLevel, 'main'));
+
   // Instruction examples: a same and a different pair at a clearly visible alpha
   const a = seed32(rng);
   const example = { alpha: ALPHAS[6], same: [a, a], different: [seed32(rng), seed32(rng)] };
-  return { seed, keys, debug: Boolean(opts.debug), blocks, example };
+  return { seed, keys, debug: Boolean(opts.debug), practice, blocks, example };
 }

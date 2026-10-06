@@ -1,7 +1,13 @@
 """Load the noise discrimination study's data files (noise_discrim_prolific) into tidy tables.
 
+Files arrive in the Google Drive folder DataPipe writes to (DRIVE_DIR); sync_from_drive()
+copies new or changed ones into DATA_DIR, which the analysis reads. Two kinds of file:
+  <name>.csv            a finished session (the whole session, uploaded at the end)
+  <name>...partial.json  trials DataPipe staged for a session that never finished (the
+                         participant quit); used only when that session has no .csv
+
 Each participant's CSV (one row per screen, see noise_discrim_prolific/README.md) becomes:
-  trials    one row per trial (part == 'response')
+  trials    one row per main trial (part == 'response'; practice trials are left out)
   sessions  one row per participant: calibration, comprehension, timing quality
 
 Signal detection: a "different" pair is the signal and "different" is the positive answer.
@@ -18,11 +24,14 @@ frame from the target (TIMING.stimulus, from the file's design row: 100 ms from 
 """
 
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
 
 DATA_DIR = Path.home() / "Documents" / "data" / "catlearn_eeg" / "noise_discrim_prolific"
+DRIVE_DIR = Path.home() / "My Drive" / "DataPipe" / "noise_discrim_thresholding"
+PATTERNS = ("noise_discrim_*.csv", "noise_discrim_*.partial.json")
 OUT_DIR = DATA_DIR / "analysis"
 TOLERANCE_MS = 0.5 * 1000 / 60
 
@@ -55,10 +64,51 @@ def target_ms(df):
     return 200
 
 
+def sync_from_drive(src=DRIVE_DIR, dst=DATA_DIR):
+    """Copy data files that are new or changed in the Drive folder; returns the names copied"""
+    src, dst = Path(src), Path(dst)
+    if not src.is_dir():
+        print(f"Drive folder not found ({src}); using the files already in {dst}")
+        return []
+    dst.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for pattern in PATTERNS:
+        for f in sorted(src.glob(pattern)):
+            target = dst / f.name
+            if not target.exists() or target.stat().st_size != f.stat().st_size or target.stat().st_mtime < f.stat().st_mtime:
+                shutil.copy2(f, target)
+                copied.append(f.name)
+    return copied
+
+
+def session_key(path):
+    """The session a file belongs to: its name without .csv / .partial.json"""
+    name = path.name
+    for suffix in (".partial.json", ".json", ".csv"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+    return name.removesuffix(".csv")
+
+
+def read_table(path):
+    """A data file as a DataFrame: a jsPsych CSV, or DataPipe's .partial.json (a list of trial rows)"""
+    if path.suffix == ".csv":
+        return pd.read_csv(path, low_memory=False)
+    raw = json.loads(path.read_text())
+    if isinstance(raw, dict):   # rows under some key, e.g. {"trials": [...]}
+        raw = next((v for v in raw.values() if isinstance(v, list)), [])
+    return pd.DataFrame(raw)
+
+
 def load_file(path):
-    df = pd.read_csv(path, low_memory=False)
+    df = read_table(path)
+    if "part" not in df or not (df["part"] == "response").any():
+        return None                                      # no trials (e.g. consent declined)
     pid = participant_id(df, path)
-    t = df[df["part"] == "response"][TRIAL_COLUMNS].copy()
+    r = df[df["part"] == "response"]
+    if "phase" in r:                                     # practice trials (version 1.3 on) are not analysed
+        r = r[r["phase"].fillna("main") != "practice"]
+    t = r[TRIAL_COLUMNS].copy()
     for c in ("correct", "timeout", "answered_during_stimulus"):
         t[c] = _bool(t[c])
     for c in ("block", "trial_in_block", "alpha_level"):
@@ -82,6 +132,7 @@ def load_file(path):
         "debug": _bool(df["debug"]).any() if "debug" in df else False,
         "simulated": _bool(df["simulated"]).any() if "simulated" in df else False,
         "finished": len(final) > 0,
+        "partial": path.name.endswith(".partial.json"),
         "n_trials": len(t),
         "pcorrect": t["correct"].mean(),
         "late_rate": t["timeout"].mean(),
@@ -101,10 +152,12 @@ def load_file(path):
 
 def load_all(data_dir=DATA_DIR, include_debug=False):
     """Every data file in data_dir; debug runs (?debug=1, shortened) are left out unless include_debug"""
-    files = sorted(Path(data_dir).glob("noise_discrim_*.csv"))
+    files = sorted(f for pattern in PATTERNS for f in Path(data_dir).glob(pattern))
+    finished = {session_key(f) for f in files if f.suffix == ".csv"}
+    files = [f for f in files if f.suffix == ".csv" or session_key(f) not in finished]   # partial only if no .csv
     if not files:
-        raise SystemExit(f"no noise_discrim_*.csv files in {data_dir}")
-    loaded = [load_file(f) for f in files]
+        raise SystemExit(f"no noise_discrim_* data files in {data_dir}")
+    loaded = [x for x in (load_file(f) for f in files) if x is not None]
     if not include_debug:
         skipped = [s["file"] for _, s in loaded if s["debug"]]
         if skipped:

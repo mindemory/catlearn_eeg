@@ -1,4 +1,5 @@
-// The task: blocks of trials with a break screen between them. A trial (plugin-noise-pair.js):
+// The task: a practice block (same mix, not analysed), then blocks of trials with a break
+// screen between them. A trial (plugin-noise-pair.js):
 //   fixation   the bull's eye alone (TIMING.fixation), the patches already drawn but hidden
 //   stimulus   both patches for TIMING.stimulus, switched on and off in display frames
 //   response   the fixation alone until an answer or TIMING.response after the patches
@@ -40,8 +41,10 @@ function trialTimeline(t, keys, state) {
       data.blur_count = attention.blur;
       data.fullscreen_exit_count = attention.fullscreenExit;
       Object.assign(data, scaleData());
-      state.n += 1;
-      state.correct += data.correct ? 1 : 0;
+      if (t.phase === 'main') {                         // the final score leaves out the practice
+        state.n += 1;
+        state.correct += data.correct ? 1 : 0;
+      }
       state.blockCorrect += data.correct ? 1 : 0;
       state.blockN += 1;
       last = data;
@@ -63,26 +66,43 @@ function trialTimeline(t, keys, state) {
   return { timeline: [stimulus, feedback] };
 }
 
+const keyLine = (keys) => `${key(keys.same)} = SAME picture      ${key(keys.different)} = DIFFERENT pictures`;
+const debugBanner = (debug) => (debug
+  ? '<div class="debug-banner">DEBUG RUN: shortened (remove ?debug=1 for the real study)</div>' : '');
+
+function practiceStart(nTrials, keys, debug) {
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    save_trial_parameters: { stimulus: false },
+    stimulus: debugBanner(debug) + '<div class="page preline center">Practice\n\n'
+      + `First, ${nTrials} practice trials to get used to the task. They work exactly like the real task`
+      + ' and are not scored.\n\n'
+      + `${keyLine(keys)}\n\nKeep your eyes on the centre.\n\nPress SPACE to start.</div>`,
+    choices: [KEYS.start],
+    data: { part: 'practice_start' },
+  };
+}
+
 function blockStart(b, nBlocks, keys, state, debug) {
   return {
     type: jsPsychHtmlKeyboardResponse,
     save_trial_parameters: { stimulus: false },
     stimulus: () => {
       let text = '';
+      const p = Math.round((100 * state.blockCorrect) / Math.max(1, state.blockN));
       if (b > 0) {
-        const p = state.blockCorrect / Math.max(1, state.blockN);
-        text += `Block ${b} of ${nBlocks} done: ${Math.round(100 * p)}% correct.\n\nTake a short break if you like.\n\n`;
+        text += `Block ${b} of ${nBlocks} done: ${p}% correct.\n\nTake a short break if you like.\n\n`;
+      } else if (state.blockN > 0) {
+        text += `Practice done: ${p}% correct.\n\nNow the real task: ${nBlocks} blocks, with a short break after`
+          + ' each.\n\n';
       }
-      text += `Block ${b + 1} of ${nBlocks}\n\n`
-        + `${key(keys.same)} = SAME picture      ${key(keys.different)} = DIFFERENT pictures\n\n`
-        + 'Keep your eyes on the centre.\n\nPress SPACE to start.';
-      return (debug ? '<div class="debug-banner">DEBUG RUN: shortened (remove ?debug=1 for the real study)</div>' : '')
-        + `<div class="page preline center">${text}</div>`;
+      text += `Block ${b + 1} of ${nBlocks}\n\n${keyLine(keys)}\n\nKeep your eyes on the centre.\n\nPress SPACE to start.`;
+      return debugBanner(debug) + `<div class="page preline center">${text}</div>`;
     },
     choices: [KEYS.start],
     data: { part: 'block_start', block: b + 1 },
     on_finish: (data) => {
-      if (b > 0) data.prev_block_pcorrect = state.blockCorrect / Math.max(1, state.blockN);
+      if (state.blockN > 0) data.prev_block_pcorrect = state.blockCorrect / state.blockN;   // block b, or the practice
       state.blockCorrect = 0;
       state.blockN = 0;
     },
@@ -91,9 +111,13 @@ function blockStart(b, nBlocks, keys, state, debug) {
 
 export function taskTimeline(design) {
   const state = { n: 0, correct: 0, blockCorrect: 0, blockN: 0 };
-  const timeline = design.blocks.flatMap((trials, b) => [
+  const practice = design.practice.length
+    ? [practiceStart(design.practice.length, design.keys, design.debug),
+       ...design.practice.map((t) => trialTimeline(t, design.keys, state))]
+    : [];
+  const timeline = practice.concat(design.blocks.flatMap((trials, b) => [
     blockStart(b, design.blocks.length, design.keys, state, design.debug),
     ...trials.map((t) => trialTimeline(t, design.keys, state)),
-  ]);
+  ]));
   return { timeline, state };
 }

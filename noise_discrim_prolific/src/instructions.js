@@ -1,7 +1,7 @@
 // Consent, instructions and the comprehension check. The instructions come after the screen
 // calibration, so their example patches are drawn at the real size and spacing.
 
-import { COMPREHENSION, CONTACT, FEEDBACK, TIMING } from './config.js';
+import { COMPREHENSION, CONTACT, FEEDBACK, RECRUITMENT, SESSION_MINUTES, TIMING } from './config.js';
 import { examplePair } from './display.js';
 import { fieldDataUrl, noiseField } from './noise.js';
 
@@ -19,9 +19,14 @@ export function consentTrial(onDecline) {
       <p>During this study, you will complete a computer-based task that involves looking at patterns on the
       screen. On each trial, you will briefly see two patterns and will be asked to make a simple decision using
       your keyboard.</p>
-      <p>You must be 18 or older to participate. Participation is entirely voluntary, and you may stop at any time
+      ${RECRUITMENT === 'pilot'
+    ? `<p>This is a short pilot of the study, with a small number of volunteers. <b>Participation is unpaid:
+      you will not receive any compensation.</b> It takes up to ${SESSION_MINUTES} minutes.</p>
+      <p>You must be 18 or older to participate. Participation is entirely voluntary, and you may stop at any time,
+      for any reason, by closing this window.</p>`
+    : `<p>You must be 18 or older to participate. Participation is entirely voluntary, and you may stop at any time
       if you feel uncomfortable for any reason. If you withdraw early due to discomfort or technical issues,
-      compensation may not be possible due to Prolific platform limitations.</p>
+      compensation may not be possible due to Prolific platform limitations.</p>`}
       <p>All information collected will be kept confidential and securely stored on Dartmouth's secure servers,
       accessible only to the principal investigator and authorized research staff. No identifying personal
       information will be collected.</p>
@@ -46,8 +51,6 @@ export function instructionsWithCheck(design) {
   const D = design.keys.different.toUpperCase();
   const nBlocks = design.blocks.length;
   const nTrials = design.blocks[0].length;
-  // ~1.7 s per trial plus ~15 s per break
-  const minutes = Math.round((nBlocks * nTrials * 1.7 + (nBlocks - 1) * 15) / 60);
   let examples = null;   // drawn on first use (needs a document)
   const ex = () => {
     if (!examples) {
@@ -81,9 +84,10 @@ export function instructionsWithCheck(design) {
         The pictures appear to its left and right; they are too brief to look at directly.</p>`),
       page(`<h2>Procedure</h2>
         <ul>
-        <li>${nBlocks} blocks of ${nTrials} trials, with a short break after each block.</li>
+        <li>First ${design.practice.length} practice trials (not scored), then ${nBlocks} blocks of ${nTrials}
+          trials, with a short break after each block.</li>
         <li>Each trial starts by itself; keep your fingers on ${key(S)} and ${key(D)}.</li>
-        <li>Expected duration: about ${minutes} minutes.</li></ul>
+        <li>The whole study takes up to ${SESSION_MINUTES} minutes.</li></ul>
         <p class="center">Next, a few quick questions to check the instructions.</p>`),
     ],
     show_clickable_nav: true,

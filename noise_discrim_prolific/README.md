@@ -24,15 +24,24 @@ anyone's learning.
 - **Design** (`ALPHAS`, `BLOCKS` in `src/config.js`). Method of constant stimuli:
   - **Levels:** 10 alphas, 0 to 4 in steps of 4/9 (0, 0.44, 0.89, 1.33, 1.78, 2.22, 2.67,
     3.11, 3.56, 4.0).
-  - **Blocks:** 5 blocks of 80 trials (`BLOCKS`). Each block has 4 same and 4 different
-    trials of every alpha, in random order. In all, 400 trials: 20 same + 20 different per
-    alpha. Near d' = 1, one participant's d' at one alpha is then about ±0.4 (it was ±0.6
-    with 10 + 10); the group mean is much tighter.
-  - **No practice:** the instructions show an example same and different pair at the real
-    size.
-- **Time:** about 11 min of trials plus breaks, about 17 min with calibration and
-  instructions.
-- **Pay:** fixed; there is no performance bonus.
+  - **Blocks:** 8 blocks of 80 trials (`BLOCKS`). Each block has 4 same and 4 different
+    trials of every alpha, in random order. In all, 640 trials: 32 same + 32 different per
+    alpha. Near d' = 1, one participant's d' at one alpha is then about ±0.33 (±0.42 with
+    20 + 20, ±0.6 with 10 + 10); the group mean is much tighter.
+  - **Practice** (`PRACTICE`): 20 trials before block 1, 1 same + 1 different per alpha,
+    with the main task's timing and feedback. They are saved with `phase = 'practice'`
+    (block 0) and left out of the analysis and of the final score.
+    - **Why the same mix:** an easy-only practice would teach people to expect visible
+      differences, which would change their bias.
+    - **What it doesn't remove:** in the first full pilot, accuracy still rose over the
+      session (57% in blocks 1-2, 76% in block 5). The analysis plots accuracy by block and
+      d' in the first vs the second half (`learning.png`).
+  - **Before the practice,** the instructions show an example same and different pair at
+    the real size.
+- **Time:** about 18 min of trials (about 1.5 s each, plus breaks), and about 5 min of
+  calibration and instructions. The consent and instructions say "up to 30 minutes"
+  (`SESSION_MINUTES`), to be safe.
+- **Pay:** none in the current pilot (`RECRUITMENT = 'pilot'`); on Prolific a fixed payment, no performance bonus.
 
 ## Stimuli
 
@@ -102,16 +111,16 @@ python3 -m http.server 8000
 
 | Address | What you get |
 |---|---|
-| <http://localhost:8000/> | **the real study** (~17 min) |
+| <http://localhost:8000/> | **the real study** (~23 min) |
 | <http://localhost:8000/?debug=1&skip=intro,calibration> | quick check (~1 min): 2 blocks of 20 trials, with a DEBUG RUN banner |
 
-The data download as `noise_discrim_pilot_<date-time>.csv` at the end. The page loads
+With `?save=local` the data download as `noise_discrim_<date-time>_<tag>.csv` at the end; otherwise they upload to the Drive folder. The page loads
 jsPsych from unpkg.com, so it needs internet. Opening `index.html` by double-clicking does
 not work; browsers block the code modules over `file://`.
 
 | Option | Effect |
 |---|---|
-| `?debug=1` | 2 blocks of 20 trials (1 same + 1 different per alpha) |
+| `?debug=1` | the practice, then 2 blocks of 20 trials (1 same + 1 different per alpha) |
 | `?skip=intro` | skip consent, instructions and the quiz |
 | `?skip=calibration` | skip the card / blind-spot measurement (assumes 60 cm and a 96-dpi screen) |
 | `?seed=123` | fixed design (keys, trial order, patch seeds) |
@@ -156,10 +165,11 @@ One CSV per participant, one row per screen. Analyse the rows with `part == "res
 
 | Column | Meaning |
 |---|---|
-| `participant`, `prolific_pid`, `study_id`, `session_id` | Prolific IDs (`pilot` when run locally) |
+| `participant`, `prolific_pid`, `study_id`, `session_id` | Prolific IDs (`pilot`, or the `?id=` label, outside Prolific) |
+| `session_file` | the name the file was saved under |
 | `seed`, `task_version` | regenerate the design with `buildDesign(seed)` |
 | `key_same`, `key_different` | this participant's keys |
-| `block`, `trial_in_block` | position in the session |
+| `phase`, `block`, `trial_in_block` | `practice` (block 0) or `main`, and position in the session |
 | `alpha`, `alpha_level` | the spectral slope, and its level (1-10) |
 | `pair` | `same` or `different` (the right answer) |
 | `seed_left`, `seed_right` | patch seeds (`tools/noise_field.py`) |
@@ -190,50 +200,48 @@ Exclusion flags, to fix before data collection (computed by the analysis):
 
 ## Putting it online
 
-Prolific doesn't host studies or store data: it sends participants to a URL you give it.
-Two things are needed: somewhere public to host this folder, and somewhere to send the
-data. With `DATA.save = 'local'` the data download to the *participant's* computer, and
-you never see them.
+The study is live at **https://www.mindemory.io/catlearn_eeg/noise_discrim_prolific/**
+(GitHub Pages from this repository's `main` branch; a push updates it within about a minute).
 
-**1. Data: DataPipe to Google Drive** (set up). `DATA` in `src/config.js` sends each
-session's CSV once, at the end, through DataPipe (experiment `noise_discrim_thresholding`,
-ID `A6UGkxMHa4mJ`). DataPipe stores it in the Google Drive folder linked to that experiment.
+**Data: DataPipe to Google Drive.** `DATA` in `src/config.js` sends data through DataPipe
+(experiment `noise_discrim_thresholding`, ID `A6UGkxMHa4mJ`) to the linked Google Drive
+folder, using DataPipe's jsPsych extension (`@jspsych/extension-pipe`, loaded in
+`index.html`):
+- **Completed sessions:** trials are staged on DataPipe as the session runs (in batches),
+  and the whole CSV is uploaded at the end.
+- **Participants who quit partway:** DataPipe writes their staged trials as a
+  `.partial.json` file after a while. Partial files don't count as sessions.
+- **File names carry no participant label:** `noise_discrim_<start time UTC>_<random
+  tag>.csv`. The name is also saved in the data as `session_file`.
+- **If the final upload fails,** a copy downloads on the participant's computer, and the end
+  screen asks them to email it to `CONTACT.email`.
+- **Test runs:** simulated runs (`?simulate=1`) never upload, and `?save=local` keeps any
+  run offline.
 - **Dashboard:** "Accept new data" must be on. Its check rejects files without a
   `trial_type` column (every jsPsych CSV has one).
-- **If an upload fails** (network, or collection switched off), a copy downloads on the
-  participant's computer and the end screen asks them to email it to `CONTACT.email`.
-- **Test runs:** simulated runs (`?simulate=1`) never upload, and `?save=local` keeps any
-  run offline, so you can test the hosted page without adding a file to the dataset.
 - **Public ID:** the experiment ID is visible in the page source, as with any DataPipe
   study. To limit misuse, set "Stop after a set number of sessions" a little above your
   target, and switch off base64 uploads (not used here).
-- **No partial data:** DataPipe's streaming extension would also save the trials of people
-  who quit partway. It isn't used, because it sends a request after every trial of a
-  frame-timed task.
 
-**2. Hosting: any static web host.** The study is plain files: jsPsych loads from unpkg, and
-the noise is generated in the browser, so nothing else is needed. Two easy options:
-- **Netlify:** log in at [app.netlify.com](https://app.netlify.com), then *Add new site →
-  Deploy manually*, and drag this folder in. You get a URL like
-  `https://noise-discrim.netlify.app`; drag again to update.
-- **GitHub Pages:** put this folder in its own repository (Pages is free only for public
-  repositories), then *Settings → Pages → Deploy from branch*.
+**Pilot vs Prolific** (`RECRUITMENT` in `src/config.js`):
+- **`'pilot'` (now):** for unpaid volunteers with a link. The consent says participation is
+  unpaid and takes up to 30 minutes, and no screen mentions Prolific. Share
+  `https://www.mindemory.io/catlearn_eeg/noise_discrim_prolific/`; a `?id=` label is
+  optional and only goes into the data.
+- **`'prolific'`:** for paid Prolific participants; see below.
 
-After deploying, run it once yourself from the public URL and check the file arrives in the Drive folder.
-
-**3. Trying it with friends (no Prolific needed).** Send the hosted URL with a label, e.g.
-`https://noise-discrim.netlify.app/?id=alex`. The label goes into `participant` and the file
-name. Friends can't take a Prolific study unless they are Prolific participants who match
-its screening, and Prolific would expect them to be paid. Without `PROLIFIC_PID` in the
-URL, the study ends with a "Pilot finished" screen instead of redirecting to Prolific.
+**Analysis.** `behav_noise_discrim/D01_dprime.py` first copies new files from the Drive
+folder (`~/My Drive/DataPipe/noise_discrim_thresholding/`) into
+`~/Documents/data/catlearn_eeg/noise_discrim_prolific/`, then analyses them. A
+`.partial.json` is used only for a session that has no CSV.
 
 ## Going live on Prolific
 
-1. **Data and hosting.** As above, with a run from the public URL checked in the Drive folder first.
+1. **Recruitment.** Set `RECRUITMENT = 'prolific'` in `src/config.js`, and use the IRB-approved consent text.
 2. **Study URL.** Your hosted address followed by
    `?PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}`.
 3. **Completion code.** Put it in `PROLIFIC.completionCode`.
-4. **Device and time.** Restrict to desktop; estimated time 17 min.
+4. **Device and time.** Restrict to desktop; estimated time about 25 min.
 5. **Description.** Mention the card needed for the screen setup.
 6. **Consent.** Check the text in `src/instructions.js` against the IRB-approved version.
 7. **Exclusions.** Exclude people who took part in the learning studies, and vice versa.

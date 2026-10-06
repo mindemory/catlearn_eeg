@@ -1,10 +1,14 @@
 // Entry point: builds the participant's design, assembles the timeline and runs it.
 //   browser check -> consent -> full screen -> screen calibration -> instructions + quiz
 //   -> blocks -> final screen -> save -> Prolific
+// Saving: online runs use DataPipe's jsPsych extension, which stages trials as the session
+// runs (so a participant who quits partway still leaves a .partial.json) and uploads the
+// whole CSV when the session ends. Local runs (DATA.save = 'local', ?save=local, simulations)
+// download the CSV instead.
 
 import { calibrationTimeline } from './calibration.js';
-import { ALPHAS, BROWSER, CONTACT, NOISE, PROLIFIC, TIMING } from './config.js';
-import { completionUrl, dataFilename, isProlific, onInteraction, saveData, sessionProperties, urlParams } from './data.js';
+import { ALPHAS, BROWSER, CONTACT, DATA, NOISE, PROLIFIC, RECRUITMENT, TIMING } from './config.js';
+import { completionUrl, dataFilename, isProlific, onInteraction, saveLocal, sessionProperties, urlParams } from './data.js';
 import { buildDesign, newSeed } from './design.js';
 import { consentTrial, instructionsWithCheck } from './instructions.js';
 import { taskTimeline } from './task.js';
@@ -14,13 +18,39 @@ const seed = params.seed ?? newSeed();
 const design = buildDesign(seed, { debug: params.debug });
 
 const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false };
+const filename = dataFilename();                 // no names in it: prefix, start time, random tag
+const online = DATA.save === 'datapipe' && !params.simulate && params.save !== 'local';
+
+// The DataPipe extension owns the online upload (no save trial then). on_save runs when the
+// final upload has finished, before showEnd(); if it failed, a copy downloads as a backup.
+const pipe = {
+  type: jsPsychExtensionPipe,
+  params: {
+    experiment_id: DATA.datapipeId,
+    filename,
+    // a participant who declines consent leaves only that decision, nothing else
+    data_string: () => (saved.declined
+      ? jsPsych.data.get().filter({ part: 'consent' }).ignore('user_agent').csv()
+      : jsPsych.data.get().csv()),
+    wait_message: '<div class="page center"><p>Saving your answers, please do not close this window...</p></div>',
+    on_save: (result) => {
+      if (result.ok) {
+        Object.assign(saved, { ok: true, mode: 'datapipe' });
+      } else {
+        saveLocal(jsPsych, filename);
+        Object.assign(saved, { ok: false, error: `DataPipe answered ${result.status}`, backupFile: filename });
+      }
+    },
+  },
+};
 
 const jsPsych = initJsPsych({
   on_interaction_data_update: onInteraction,
   on_finish: () => showEnd(),
+  extensions: online ? [pipe] : [],
 });
-jsPsych.data.addProperties({ ...sessionProperties(params, seed), key_same: design.keys.same,
-                             key_different: design.keys.different });
+jsPsych.data.addProperties({ ...sessionProperties(params, seed), session_file: filename,
+                             key_same: design.keys.same, key_different: design.keys.different });
 window.catlearn = { jsPsych, design, params };   // for inspection in the browser console
 
 const browserCheck = {
@@ -28,7 +58,8 @@ const browserCheck = {
   minimum_width: BROWSER.minWidth,
   minimum_height: BROWSER.minHeight,
   inclusion_function: (d) => BROWSER.allowMobile || !d.mobile,
-  exclusion_message: () => '<p>Sorry, this study needs a computer with a keyboard. Please return it on Prolific.</p>',
+  exclusion_message: () => '<p>Sorry, this study needs a computer with a keyboard'
+    + (RECRUITMENT === 'prolific' ? '. Please return it on Prolific.</p>' : ' and a large enough window.</p>'),
   data: { part: 'browser_check' },
   on_finish: (data) => { data.low_refresh = data.vsync_rate !== null && data.vsync_rate < BROWSER.minRefreshHz; },
 };
@@ -38,7 +69,8 @@ const declined = () => {
   const go = isProlific(params) && !PROLIFIC.noConsentCode.startsWith('REPLACE');
   jsPsych.abortExperiment(
     '<p>You did not consent, so the study ends here. Thank you for your time.</p>'
-    + (go ? '<p>Returning you to Prolific...</p>' : '<p>Please return the study on Prolific.</p>'),
+    + (go ? '<p>Returning you to Prolific...</p>'
+      : RECRUITMENT === 'prolific' ? '<p>Please return the study on Prolific.</p>' : '<p>You can close this window.</p>'),
   );
   if (go) setTimeout(() => { window.location.href = completionUrl(PROLIFIC.noConsentCode); }, 3000);
 };
@@ -82,19 +114,12 @@ const finale = {
 
 const fullscreenOff = { type: jsPsychFullscreen, fullscreen_mode: false, delay_after: 0, data: { part: 'fullscreen_off' } };
 
-// Saving waits until the data are stored (or fail) before the experiment ends
+// Local runs only: download the CSV (online runs are saved by the DataPipe extension)
 const save = {
   type: jsPsychCallFunction,
-  async: true,
-  func: (done) => {
-    document.querySelector('.jspsych-content').innerHTML = '<p>Saving your data, please do not close this window...</p>';
-    saveData(jsPsych, dataFilename(params), params)
-      .then((result) => { Object.assign(saved, { ok: true, mode: result.mode }); done(result); })
-      .catch((err) => {
-        console.error(err);
-        Object.assign(saved, { ok: false, error: err.message, backupFile: err.backupFile ?? null });
-        done({ error: err.message });
-      });
+  func: () => {
+    saveLocal(jsPsych, filename);
+    Object.assign(saved, { ok: true, mode: 'local' });
   },
   data: { part: 'save' },
 };
@@ -108,13 +133,15 @@ function showEnd() {
         + `<b>${saved.backupFile}</b> (usually in your Downloads folder).</p>`
         + `<p>Please email that file to ${CONTACT.email}${isProlific(params) ? ' or send it through Prolific' : ''}.`
         + ' Thank you!</p>'
-      : '<p>Saving failed. Please contact the researcher on Prolific and do not close this window.</p>';
+      : `<p>Saving failed. Please contact ${CONTACT.email}${isProlific(params) ? ' or the researcher on Prolific' : ''}`
+        + ' and do not close this window.</p>';
     message += `<p class="small">${saved.error}</p>`;
   } else if (isProlific(params)) {
     message = '<p>Your answers are saved. Returning you to Prolific...</p>';
     setTimeout(() => { window.location.href = completionUrl(PROLIFIC.completionCode); }, 2000);
   } else {
-    message = `<p>Pilot finished. Data saved (${saved.mode}).</p>`;
+    message = '<p>Thank you! Your answers are saved. You can close this window.</p>'
+      + `<p class="small">(saved: ${saved.mode})</p>`;
   }
   jsPsych.getDisplayElement().innerHTML = `<div class="page center">${message}</div>`;
 }
@@ -122,7 +149,7 @@ function showEnd() {
 const consent = params.skipIntro ? [] : [consentTrial(declined)];
 const instructions = params.skipIntro ? [] : [instructionsWithCheck(design)];
 const timeline = [browserCheck, ...consent, fullscreenOn, calibration, ...instructions, designRow, task,
-                  finale, fullscreenOff, save];
+                  finale, fullscreenOff, ...(online ? [] : [save])];
 
 if (params.simulate) {
   jsPsych.simulate(timeline, params.simulate);
