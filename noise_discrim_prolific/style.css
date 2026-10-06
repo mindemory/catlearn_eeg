@@ -1,0 +1,114 @@
+/* --deg: pixels per degree of visual angle, set by calibration.js (this fallback assumes
+   the window is ~30 deg tall until the calibration has run) */
+:root {
+  --deg: calc(100vh / 30);
+}
+
+/* Mid-grey background everywhere (the patches' mean grey) */
+html, body {
+  margin: 0;
+  background: #808080;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.jspsych-display-element {
+  background: #808080;
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.jspsych-content {
+  max-width: 900px;
+}
+
+/* ---- trial screens: a full-window stage, children positioned from its centre ---- */
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: none;
+}
+
+.stage > * {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+/* blind-spot measurement (virtual chinrest): bigger, clearer square and ball. The plugin
+   measures both by their rendered centres, so resizing them does not bias the distance. */
+#svgDiv {
+  height: 130px !important;
+}
+#virtual-chinrest-square {
+  width: 46px !important;
+  height: 46px !important;
+  outline: 4px solid #ffffff;
+}
+#virtual-chinrest-circle {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 14px 4px rgba(255, 0, 0, 0.6);
+}
+
+
+/* ---- text pages ---- */
+.page {
+  text-align: left;
+  white-space: normal;
+}
+.page h2 {
+  text-align: center;
+  margin-top: 0;
+}
+.page.center,
+.page .center {
+  text-align: center;
+}
+.page .small {
+  font-size: 16px;
+}
+.key {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.3em;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: bold;
+}
+.preline {
+  white-space: pre-line;
+}
+
+/* instruction examples: a pair of patches at the trial size and spacing (set by display.js) */
+.example-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.example-pair {
+  margin: 0;
+  text-align: center;
+}
+.example-patches {
+  display: flex;
+  justify-content: center;
+}
+.example-pair figcaption {
+  font-size: 16px;
+  color: #e6e6e6;
+}
+
+/* shown on block start screens of debug runs (?debug=1) */
+.debug-banner {
+  color: #111111;
+  background: #ffd166;
+  font-weight: bold;
+  padding: 6px 14px;
+  border-radius: 6px;
+  margin: 0 auto 18px;
+  display: inline-block;
+}
