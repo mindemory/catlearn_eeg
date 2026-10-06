@@ -1,0 +1,11 @@
+# Subject data
+data/
+
+# MATLAB
+*.asv
+*.m~
+*.mex*
+slprj/
+
+# macOS
+.DS_Store

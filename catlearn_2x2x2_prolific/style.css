@@ -1,0 +1,208 @@
+/* --deg: pixels per degree of visual angle, set by calibration.js (this fallback assumes
+   the window is ~30 deg tall until the calibration has run) */
+:root {
+  --deg: calc(100vh / 30);
+}
+
+/* Mid-grey background everywhere, as in the PsychoPy version */
+html, body {
+  margin: 0;
+  background: #808080;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.jspsych-display-element {
+  background: #808080;
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.jspsych-content {
+  max-width: 900px;
+}
+
+/* ---- trial screens: a full-window stage, children positioned from its centre ---- */
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: none;
+}
+
+.stage > * {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+/* slot-machine frame (sizes and colour set by display.js) */
+.machine {
+  box-sizing: border-box;
+}
+.machine-plate {
+  color: #3a2a00;
+  font-weight: bold;
+  letter-spacing: 0.3em;
+  white-space: nowrap;
+}
+/* lever: a box hanging from its pivot (the box's bottom centre); pulling flips it down and back */
+.stage > .lever {
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+}
+.stage > .lever.pulling {
+  animation: pull 400ms ease-in-out;
+}
+@keyframes pull {
+  0%   { transform: translate(-50%, -100%) scaleY(1); }
+  50%  { transform: translate(-50%, -100%) scaleY(-1); }
+  100% { transform: translate(-50%, -100%) scaleY(1); }
+}
+.lever-arm {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  top: 25%;
+  transform: translateX(-50%);
+}
+.lever-knob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #d62828;
+  border-radius: 50%;
+}
+.lever-hub {
+  border-radius: 50%;
+}
+.hint {
+  color: #d9d9d9;
+  white-space: nowrap;
+}
+
+/* blind-spot measurement (virtual chinrest): bigger, clearer square and ball. The plugin
+   measures both by their rendered centres, so resizing them does not bias the distance. */
+#svgDiv {
+  height: 130px !important;
+}
+#virtual-chinrest-square {
+  width: 46px !important;
+  height: 46px !important;
+  outline: 4px solid #ffffff;
+}
+#virtual-chinrest-circle {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 14px 4px rgba(255, 0, 0, 0.6);
+}
+
+
+.fractal {
+  object-fit: contain;
+}
+
+.ring {
+  border-style: solid;
+  border-color: #d3d3d3;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+/* coin bar: top of the window; fill animates from --from to --to on the feedback screen */
+.coinbar {
+  display: flex;
+  align-items: center;
+  gap: 1.2vh;
+  font-weight: bold;
+  font-size: 1.9vh;
+  color: #ffd166;
+}
+.stage > .coinbar {
+  left: 50%;
+  top: 3.5vh;
+  transform: translate(-50%, -50%);
+}
+.coinbar-track {
+  width: 32vw;
+  height: 1.3vh;
+  border-radius: 0.65vh;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.coinbar-fill {
+  height: 100%;
+  width: var(--to);
+  background: #ffd166;
+  animation: coinfill 450ms ease-out;
+}
+.coinbar.practice { color: #d0d0d0; }
+.coinbar.practice .coinbar-fill { background: #d0d0d0; }
+@keyframes coinfill {
+  from { width: var(--from); }
+  to { width: var(--to); }
+}
+
+
+/* ---- text pages ---- */
+.page {
+  text-align: left;
+  white-space: normal;
+}
+.page h2 {
+  text-align: center;
+  margin-top: 0;
+}
+.page.center,
+.page .center {
+  text-align: center;
+}
+.page .small {
+  font-size: 16px;
+}
+.key {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.3em;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: bold;
+}
+.preline {
+  white-space: pre-line;
+}
+
+/* instruction examples: a small stage in a fixed-size box (sizes set in px by display.js) */
+.example-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+.example-bar {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0;
+}
+.example {
+  position: relative;
+  margin: 10px auto;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.example .stage {
+  position: absolute;
+  inset: 0;
+  cursor: auto;
+}
+
+/* shown on block start screens of debug runs (?debug=1) */
+.debug-banner {
+  color: #111111;
+  background: #ffd166;
+  font-weight: bold;
+  padding: 6px 14px;
+  border-radius: 6px;
+  margin: 0 auto 18px;
+  display: inline-block;
+}
