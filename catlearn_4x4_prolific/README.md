@@ -17,13 +17,15 @@ first study) a plain F/J categorisation task with a performance bonus.
 
   | Step | What happens | Duration |
   |---|---|---|
-  | iti | fixation only (participants are asked to look at it) | 1 s |
+  | iti | fixation only (participants are asked to look at it) | 1–1.3 s, jittered per round (`iti_ms`; 1 s before 1.2) |
   | response | the two symbols, no fixation (free viewing), until `F` / `J` (either case) | up to 4 s |
   | feedback | green circles around both symbols if correct, red if wrong or too slow; no text | 2 s |
 
   Rounds follow each other automatically; there is a break screen between blocks, which
   also asks participants to sit at about the same distance from the screen as at the start
-  (the screen calibration is done once, at the start).
+  (the screen calibration is done once, at the start). Breaks are capped at 90 s
+  (`TIMING.breakMax`, since 1.2): a countdown shows, then the next block's intro comes up
+  and waits for SPACE (`break_timed_out` in the data).
 - **No points on screen.** There are no coins, scores or bars during the rounds.
   Participants are told about the bonus in the instructions, see each test block's bonus on
   its break screen, and the total on the final screen.
@@ -32,14 +34,15 @@ first study) a plain F/J categorisation task with a performance bonus.
 
   | Correct in the block | Bonus for the block |
   |---|---|
-  | below 50% | $0.00 |
-  | 50% to 60% | $0.50 |
-  | 60% to 70% | $1.00 |
-  | 70% or more | $2.00 |
+  | below 56% | $0.00 |
+  | 56% to 60% | $0.25 |
+  | 60% to 70% | $0.50 |
+  | 70% or more | $1.00 |
 
-  Up to $6 over the three test blocks. There are no penalties, so the bonus never reduces
-  the base pay. 50% is chance: a pure guesser reaches 50% in about half the blocks and
-  averages about $0.80 in all.
+  Up to $3 over the three test blocks. There are no penalties, so the bonus never reduces
+  the base pay. The first tier starts above chance, so guessing or pressing one key (50%)
+  earns nothing. Before 1.2 the tiers were 50% $0.50, 60% $1.00, 70% $2.00 (up to $6);
+  `tools/bonus_payments.py` pays each session by the tiers of its own `task_version`.
 - **Screening** (`SCREENING` in `src/config.js`, Prolific "custom screening"). Participants
   who are not a good fit leave early with a fixed $1.00 and don't use up a place:
 
@@ -196,8 +199,9 @@ After full screen, `src/calibration.js` runs jsPsych's virtual chinrest (~2 min)
 From these, pixels per degree = 2 · distance · tan(0.5°) · pixels per mm, applied as the
 CSS variable `--deg`.
 
-- **Implausible measurements.** If the distance is outside 30–100 cm or the card outside
-  1.5–12 px/mm, the measurement is repeated once. If it is still off, the experiment
+- **Implausible measurements.** If the distance is outside 40–80 cm (30–100 cm before 1.2) or the card outside
+  1.5–12 px/mm, the measurement is repeated once, telling the participant to sit at arm's
+  length and whether to move closer or back. If it is still off, the experiment
   assumes 60 cm and/or a 96-dpi screen, and records which in `calibration_source`.
 - **Window too small.** If the whole layout (19° × 7°: both symbols and their feedback
   circles) does not fit the window, everything shrinks by the same factor (`layout_scale` < 1).
@@ -364,13 +368,13 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
    - screen-out reward $1.00, matching `SCREENING.payUsd`;
    - screen-out slots about half the places, e.g. 5 for 10;
    - copy its screen-out code into `PROLIFIC.screenOutCodes`, A and B.
-5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: about
-   60 minutes with the default design (3 × 208 test rounds at ~4.2 s, practice, ~8 min
-   of setup, ~4 min of questionnaire).
+5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: 65
+   minutes with the default design (3 × 208 test rounds at ~4.35 s, practice, setup,
+   breaks of up to 90 s, ~4 min of questionnaire; the instructions say about 66).
 6. **Study description.** Say that participants need a **bank or ID card** for the screen
-   setup. Mention the bonus ("up to $6, per block") and that the study may end early after
-   the instructions or the first practice, paid $1.00. Budget up to $6 of bonus per
-   participant.
+   setup. Mention the bonus ("up to $3, $1 per block, from 56% correct") and that the study
+   may end early after the instructions or the first practice, paid $1.00. Budget up to $3
+   of bonus per participant.
 7. **Consent.** Check that the text in `src/instructions.js` matches the IRB-approved
    version, including the performance bonus.
 8. **Two studies for the two versions.** For exactly half A and half B, publish the study
@@ -382,9 +386,16 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
 
 ## History
 
-- **Version 1.1: post-task questionnaire.** It covers difficulty per block, strategy and
-  which side mattered, effort (NASA-TLX), engagement, and Need for Cognition. It comes
-  before the bonus screen, about 4 min.
+- **Version 1.2: timing, bonus and calibration.**
+  - ITI jittered uniformly between 1 and 1.3 s (10 ms steps), saved per round as `iti_ms`.
+  - Bonus tiers from 56% correct: $0.25 / $0.50 / $1.00 per block, up to $3.
+  - Breaks capped at 90 s, with a countdown.
+  - Plausible viewing distance 40–80 cm (a 99.6 cm pilot reading had passed the old
+    30–100 cm range).
+- **Version 1.1: post-task questionnaire and a stricter type-I gate.** The questionnaire
+  covers difficulty per block, strategy per block (with that block's symbols shown),
+  effort (NASA-TLX), engagement, and Need for Cognition, before the bonus screen, about
+  4 min. The type-I practice ends at 11 of the last 12 correct (XOR: 9 of 10, not a gate).
 - **Version 1.0 (the first study): F/J categorisation.**
   - The slot machine, coins and coin bar are gone. Participants press F for one category
     and J for the other, with the same keys for everyone.

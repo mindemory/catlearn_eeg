@@ -3,7 +3,7 @@
 // no jsPsych, so the same seed always gives the same design (and it can be checked in a
 // console).
 
-import { BLOCKS, KEYS, RULES, SEQUENCES, STIMULI } from './config.js';
+import { BLOCKS, KEYS, RULES, SEQUENCES, STIMULI, TIMING } from './config.js';
 import { FRACTAL_GROUPS } from '../stimuli/fractal_groups/groups.js';
 
 // Small seeded PRNG (mulberry32): returns floats in [0, 1)
@@ -85,8 +85,11 @@ export function buildDesign(seed, opts = {}) {
       for (const compound of shuffle([...Array(size * size).keys()], rng)) {
         const a = Math.floor(compound / size);
         const b = compound % size;
+        // fixation before the pair: uniform between TIMING.iti's bounds, in 10 ms steps
+        const [lo, hi] = TIMING.iti;
+        const iti = lo + 10 * Math.floor(rng() * ((hi - lo) / 10 + 1));
         trials.push({ rep: rep + 1, compound, level_a: a, level_b: b,
-                      fractal_a: fractals.A[a], fractal_b: fractals.B[b], category: labels[compound] });
+                      fractal_a: fractals.A[a], fractal_b: fractals.B[b], category: labels[compound], iti_ms: iti });
       }
     }
     trials.forEach((t, k) => { t.trial_in_block = k + 1; });

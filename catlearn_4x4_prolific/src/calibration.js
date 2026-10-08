@@ -89,7 +89,8 @@ export function calibrationTimeline({ skip = false } = {}) {
       <p class="center">So that the pictures have the same size for everyone, we first measure your screen
       and how far you sit from it. This takes about 2 minutes.</p>
       <p class="center">You need a <b>card the size of a credit card</b> (any bank, ID or loyalty card).
-      Sit as you will sit during the whole study, about an arm's length from the screen.</p></div>`,
+      Sit as you will sit during the whole study, about an arm's length from the screen
+      (${Math.round(CALIBRATION.plausibleDistanceMm[0] / 10)} to ${Math.round(CALIBRATION.plausibleDistanceMm[1] / 10)} cm).</p></div>`,
     choices: ['Start'],
     data: { part: 'calibration_intro' },
   };
@@ -120,13 +121,24 @@ export function calibrationTimeline({ skip = false } = {}) {
       data.calibration_plausible = plausible();
     },
   };
+  const cm = (mm) => Math.round(mm / 10);
+  const [nearMm, farMm] = CALIBRATION.plausibleDistanceMm;
   const retry = {
     timeline: [{
       type: jsPsychHtmlButtonResponse,
-      stimulus: `<div class="page center"><p>That measurement looked unusual. Let's do it once more.</p>
+      // says which way to move when the distance is outside the plausible range
+      stimulus: () => {
+        const d = last?.view_dist_mm;
+        const move = d > farMm ? `You seem to be sitting more than ${cm(farMm)} cm from the screen: please move closer.`
+          : d < nearMm ? `You seem to be sitting less than ${cm(nearMm)} cm from the screen: please move back a little.`
+          : '';
+        return `<div class="page center"><p>That measurement looked unusual. Let's do it once more.</p>
+        <p>Sit about an arm's length from the screen (${cm(nearMm)} to ${cm(farMm)} cm), as you will for the whole
+        study. ${move}</p>
         <p>Make sure the card on the screen matches your real card exactly. Then cover your right eye, keep your
         left eye pointed straight at the black square (don't follow the ball) and press the space bar the
-        moment the red ball disappears.</p></div>`,
+        moment the red ball disappears.</p></div>`;
+      },
       choices: ['Measure again'],
       data: { part: 'calibration_retry' },
     }],

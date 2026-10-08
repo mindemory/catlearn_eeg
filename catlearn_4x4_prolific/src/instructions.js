@@ -56,11 +56,11 @@ export function instructionsWithCheck(design, example, { onFail = null } = {}) {
       : `block ${b.blockInPhase} once ${m} of your last ${w}`;
   }).join(', ') + '.';
   // Duration: test rounds plus ~45 practice rounds per practice block, ~1.2 s to answer per
-  // round, plus ~12 min of setup, instructions and breaks (the 1.0 pilot: median 60 min
-  // without the questionnaire)
+  // round, plus ~10 min of setup, instructions and breaks (the 1.0 pilot: median 60 min
+  // without the questionnaire, with uncapped breaks; breaks are capped from 1.2)
   const nTest = test.reduce((n, b) => n + b.trials.length, 0);
-  const roundMs = TIMING.iti + 1200 + TIMING.feedback;
-  const minutes = Math.round(((nTest + 45 * practice.length) * roundMs) / 60000 + 12
+  const roundMs = (TIMING.iti[0] + TIMING.iti[1]) / 2 + 1200 + TIMING.feedback;
+  const minutes = Math.round(((nTest + 45 * practice.length) * roundMs) / 60000 + 10
     + (QUESTIONNAIRE.enabled ? QUESTIONNAIRE.minutes : 0));
   const F = design.keys.cat1.toUpperCase();
   const J = design.keys.cat0.toUpperCase();
@@ -108,7 +108,7 @@ export function instructionsWithCheck(design, example, { onFail = null } = {}) {
       <li>Then ${test.length} test blocks: each side shows one of ${test[0]?.size ?? 4} symbols,
         ${test[0]?.trials.length ?? 0} rounds each.</li>
       <li>Every block has <b>new</b> symbols, so you learn which pairs go with ${key(F)} and ${key(J)} from scratch.</li>
-      <li>You can rest between blocks.</li>
+      <li>You can rest between blocks, for up to ${TIMING.breakMax / 1000} seconds each time.</li>
       ${QUESTIONNAIRE.enabled ? '<li>At the end, a few short questions about the task.</li>' : ''}
       <li>Expected duration: about ${minutes} minutes.</li></ul>
       <p class="center small">If the quick questions below are answered wrongly twice, or the first practice

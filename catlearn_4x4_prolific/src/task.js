@@ -1,5 +1,6 @@
 // The task: for every block an intro screen, the rounds and a summary screen. A round:
-//   iti       fixation only (TIMING.iti): every round starts from the centre
+//   iti       fixation only, jittered per trial (TIMING.iti; the trial's iti_ms): every round
+//             starts from the centre
 //   response  the two symbols, no fixation (free viewing), until F / J or TIMING.response
 //   feedback  green / red circles around the symbols (TIMING.feedback)
 // Practice blocks with a criterion end as soon as it is met; after each practice block the
@@ -70,8 +71,8 @@ function blockTimeline(block, keys, state, isFirstOfPhase, isFirstBlock, opts) {
         save_trial_parameters: { stimulus: false },
         stimulus: () => screen({ fixation: true }),
         choices: 'NO_KEYS',
-        trial_duration: TIMING.iti,
-        data: { part: 'iti', ...blockInfo, trial_in_block: t.trial_in_block },
+        trial_duration: t.iti_ms,
+        data: { part: 'iti', ...blockInfo, trial_in_block: t.trial_in_block, iti_ms: t.iti_ms },
       },
       {
         type: jsPsychHtmlKeyboardResponse,
@@ -156,15 +157,28 @@ function blockTimeline(block, keys, state, isFirstOfPhase, isFirstBlock, opts) {
         text += `\nBonus for this block: ${formatDollars(s.block_bonus_usd)} (so far: ${formatDollars(s.bonus_so_far_usd)})`;
       }
       if (!block.criterion) text += `\n\nYour score in this block: ${s.block_grade}\n\n${s.comment}`;
-      text += '\n\nTake a short break if you like.\n'
-        + 'Please sit at about the same distance from the screen as at the start.\nPress SPACE to continue!';
+      text += `\n\nTake a short break if you like (up to ${TIMING.breakMax / 1000} seconds).\n`
+        + 'Please sit at about the same distance from the screen as at the start.\n'
+        + `Press SPACE to continue, or wait: the study moves on in <span id="break-countdown">${TIMING.breakMax / 1000}</span> s.`;
       return `<div class="page preline center">${text}</div>`;
     },
     choices: [KEYS.start],
+    // the break is capped: after TIMING.breakMax the next screen (the next block's intro,
+    // which waits for SPACE) comes up on its own
+    trial_duration: TIMING.breakMax,
+    on_load: () => {
+      const end = performance.now() + TIMING.breakMax;
+      local.countdown = setInterval(() => {
+        const el = document.getElementById('break-countdown');
+        if (el) el.textContent = String(Math.max(0, Math.ceil((end - performance.now()) / 1000)));
+      }, 250);
+    },
     data: { part: 'block_summary', ...blockInfo },
     on_finish: (data) => {
+      clearInterval(local.countdown);
       const { comment, ...s } = summarize();
       Object.assign(data, s);
+      data.break_timed_out = data.response === null;
     },
   };
 
