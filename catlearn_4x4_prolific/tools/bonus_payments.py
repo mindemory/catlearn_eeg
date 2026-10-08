@@ -1,4 +1,4 @@
-"""Prolific bonus list from the experiment's data files.
+r"""Prolific bonus list from the experiment's data files.
 
 Reads every catlearn_online_*.csv in a folder, takes each participant's answers in the
 bonus blocks (the test blocks), recomputes the bonus with the same rule as src/bonus.js and
@@ -20,7 +20,12 @@ from the earlier slot-machine pilot builds (task_version 3.x, paid in coins; rec
 having no counts_for_bonus column) are skipped. Keep the arguments in sync with BONUS in
 src/config.js (TIERS below).
 
-  python3 tools/bonus_payments.py ~/Downloads/catlearn_data
+By default it reads the finished sessions in ROOT/data/ (copied from Drive by
+behav_4x4_prolific; see its load_data.py) and writes to ROOT/bonus/, where ROOT is
+~/Documents/data/catlearn_eeg/catlearn_4x4_prolific:
+
+  python3 tools/bonus_payments.py
+  python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4      # straight from Drive
 """
 
 import argparse
@@ -28,6 +33,8 @@ import csv
 import glob
 import os
 import sys
+
+ROOT = os.path.expanduser("~/Documents/data/catlearn_eeg/catlearn_4x4_prolific")
 
 csv.field_size_limit(sys.maxsize)   # the 'final' row holds the full interaction log
 
@@ -45,7 +52,10 @@ def block_bonus(p_correct):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("folder", help="folder with the downloaded catlearn_online_*.csv files")
+    parser.add_argument("folder", nargs="?", default=os.path.join(ROOT, "data"),
+                        help="folder with the catlearn_online_*.csv files (default: ROOT/data)")
+    parser.add_argument("--out", default=os.path.join(ROOT, "bonus"),
+                        help="folder for bonus_payments.txt and bonus_report.csv (default: ROOT/bonus)")
     parser.add_argument("--include-incomplete", action="store_true", help="also pay sessions without a final row")
     args = parser.parse_args()
 
@@ -59,9 +69,10 @@ def main():
             rows = list(csv.DictReader(f))
         if not rows or "counts_for_bonus" not in rows[0]:
             version = next((r["task_version"] for r in rows if r.get("task_version")), "?")
+            why = (f"slot-machine pilot build (task_version {version}), paid in coins" if version.startswith("3.")
+                   else "no task trials (the session ended before the task, e.g. at the browser check)")
             report.append({"file": os.path.basename(path), "prolific_pid": "", "completed": "", "bonus_rounds": "",
-                           "p_correct": "", "block_p": "", "bonus_usd": "",
-                           "checks": f"skipped: slot-machine pilot build (task_version {version}), paid in coins"})
+                           "p_correct": "", "block_p": "", "bonus_usd": "", "checks": f"skipped: {why}"})
             continue
         pid = next((r["prolific_pid"] for r in rows if r.get("prolific_pid")), "")
         counted = [r for r in rows if r.get("part") == "response" and r.get("counts_for_bonus") == "true"]
@@ -90,7 +101,8 @@ def main():
         if pid:
             seen.add(pid)
 
-    out_dir = os.path.expanduser(args.folder)
+    out_dir = os.path.expanduser(args.out)
+    os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "bonus_payments.txt"), "w") as f:
         f.writelines(f"{pid},{usd:.2f}\n" for pid, usd in payments.items())
     with open(os.path.join(out_dir, "bonus_report.csv"), "w", newline="") as f:

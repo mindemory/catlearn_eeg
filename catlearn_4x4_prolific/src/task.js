@@ -9,14 +9,13 @@
 // checks.
 
 import { scaleData } from './calibration.js';
-import { FEEDBACK, GRADES, KEYS, PRACTICE_CRITERION, SCREENING, TIMING } from './config.js';
+import { FEEDBACK, GRADES, KEYS, practiceCriterion, SCREENING, TIMING } from './config.js';
 import { attention } from './data.js';
 import { screen } from './display.js';
 import { blockBonus, countsForBonus, formatDollars, totalBonus } from './bonus.js';
 
-const { window: WINDOW, minCorrect: MIN_CORRECT } = PRACTICE_CRITERION;
-
 function blockIntro(block, keys, isFirstOfPhase, isFirstBlock, debug) {
+  const { window: WINDOW, minCorrect: MIN_CORRECT } = practiceCriterion(block.ruleType);
   const phaseName = block.phase === 'practice' ? 'Practice' : 'Test';
   let begin = '';
   if (isFirstOfPhase) {
@@ -53,10 +52,12 @@ function blockIntro(block, keys, isFirstOfPhase, isFirstBlock, debug) {
  */
 function blockTimeline(block, keys, state, isFirstOfPhase, isFirstBlock, opts) {
   const { debug } = opts;
+  const { window: WINDOW, minCorrect: MIN_CORRECT } = practiceCriterion(block.ruleType);
   const local = { correct: 0, late: 0, n: 0, recent: [], done: false, criterionMet: false };
   const blockInfo = {
     block: block.block, phase: block.phase, block_in_phase: block.blockInPhase, rule: block.rule,
     rule_type: block.ruleType, size: block.size, counts_for_bonus: countsForBonus(block.phase),
+    ...(block.criterion ? { criterion_window: WINDOW, criterion_min_correct: MIN_CORRECT } : {}),
   };
   let last = null;   // the latest response row, for its feedback screen
 

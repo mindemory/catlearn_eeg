@@ -14,9 +14,11 @@
 // Each trial: fixation (TIMING.iti), then the pair with no fixation (participants look freely)
 // until F / J or TIMING.response, then feedback.
 
-export const VERSION = '1.0.1';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
+export const VERSION = '1.1.0';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
                                   // 1.0.1: practice criterion 9 of the last 10 (was 8).
-                                  // The earlier slot-machine pilot builds saved task_version 3.x.
+                                  // 1.1: post-task questionnaire; type-I practice criterion 11 of
+                                  // the last 12. The earlier slot-machine pilot builds saved
+                                  // task_version 3.x.
 
 // ---------------------------------------------------------------- rules
 // Category (1 = F, 0 = J) of every pair: compound = size * a + b, where a and b (0 .. size-1)
@@ -56,10 +58,16 @@ export const BLOCKS = [
   { phase: 'test', rule: 'seq:3', reps: 13 },
 ];
 
-// Practice ends when at least `minCorrect` of the last `window` answers are correct (90%; a
-// guesser reaches 9 of 10 within 80 trials 26% of the time, 8 of 10 69%);
-// at the latest after `reps` passes (flagged in the data if never met)
-export const PRACTICE_CRITERION = { window: 10, minCorrect: 9 };
+// Practice ends when at least `minCorrect` of the last `window` answers are correct, at the
+// latest after `reps` passes (flagged in the data if never met). Per rule type: type I, the
+// screening gate (SCREENING.practiceTypeI), is the strictest. Within 80 trials a guesser
+// reaches 11 of 12 8% of the time (9 of 10: 25%, 8 of 10: 69%); a participant at 80% correct
+// reaches it 99% of the time.
+export const PRACTICE_CRITERION = {
+  I: { window: 12, minCorrect: 11 },
+  XOR: { window: 10, minCorrect: 9 },
+};
+export const practiceCriterion = (ruleType) => PRACTICE_CRITERION[ruleType] ?? PRACTICE_CRITERION.XOR;
 
 // ---------------------------------------------------------------- stimuli
 // Fractals matched in brightness, colourfulness and size, in groups whose members are all
@@ -147,6 +155,10 @@ export const CALIBRATION = {
   fitMargin: 0.95,                // the layout may fill at most this fraction of the window
 };
 
+// Post-task questionnaire (src/questionnaire.js): after the last test block, before the
+// bonus screen, ~4 min. ?skip=questionnaire leaves it out of a run.
+export const QUESTIONNAIRE = { enabled: true, minutes: 4 };
+
 export const COMPREHENSION = { maxAttempts: 2 };   // quiz attempts; failing all of them screens out (SCREENING)
 
 // Custom screening (Prolific "custom screening" completion path): participants who are not a
@@ -164,8 +176,10 @@ export const SCREENING = { quiz: true, practiceTypeI: true, practiceTimeouts: 0.
 // in each study's URL. Every Prolific study has its own codes, so they are listed per version
 // and picked by the participant's version (from the URL).
 export const PROLIFIC = {
-  completionCodes: { A: 'CCP8AO6I', B: 'REPLACE_WITH_STUDY_B_CODE' },        // "Completion paths" on each study's page
-  screenOutCodes: { A: 'CASM8Y0V', B: 'REPLACE_WITH_STUDY_B_SCREEN_OUT_CODE' },   // custom screening path
+  // B is a duplicate of A's study, so Prolific kept A's codes (a code is checked against the
+  // participant's own study, so sharing them is fine)
+  completionCodes: { A: 'CCP8AO6I', B: 'CCP8AO6I' },        // "Completion paths" on each study's page
+  screenOutCodes: { A: 'CASM8Y0V', B: 'CASM8Y0V' },         // custom screening path
   noConsentCodes: { A: 'REPLACE_WITH_NO_CONSENT_CODE', B: 'REPLACE_WITH_NO_CONSENT_CODE' },   // optional "returned" path
   completeUrl: 'https://app.prolific.com/submissions/complete?cc=',
 };

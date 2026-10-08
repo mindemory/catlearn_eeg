@@ -7,11 +7,12 @@
 // download the CSV instead.
 
 import { calibrationTimeline } from './calibration.js';
-import { BROWSER, CONTACT, DATA, PROLIFIC, SCREENING } from './config.js';
+import { BROWSER, CONTACT, DATA, PROLIFIC, QUESTIONNAIRE, SCREENING } from './config.js';
 import { completionUrl, dataFilename, isProlific, onInteraction, saveLocal, sessionProperties, urlParams } from './data.js';
 import { buildDesign, designImages, newSeed } from './design.js';
 import { consentTrial, instructionsWithCheck } from './instructions.js';
 import { formatDollars, totalBonus } from './bonus.js';
+import { questionnaireTimeline } from './questionnaire.js';
 import { taskTimeline } from './task.js';
 
 const params = urlParams();
@@ -211,8 +212,9 @@ function showEnd() {
 const consent = params.skipIntro ? [] : [consentTrial(declined)];
 const instructions = params.skipIntro ? [] : [instructionsWithCheck(design, design.example,
   { onFail: screening && SCREENING.quiz ? () => screenOut('quiz') : null })];
+const questionnaire = QUESTIONNAIRE.enabled && !params.skipQuestionnaire ? [questionnaireTimeline(design)] : [];
 const timeline = [browserCheck, preload, ...consent, fullscreenOn, calibration, ...instructions, designRow, task,
-                  finale, fullscreenOff, ...(online ? [] : [save])];
+                  ...questionnaire, finale, fullscreenOff, ...(online ? [] : [save])];
 
 if (params.simulate) {
   jsPsych.simulate(timeline, params.simulate);

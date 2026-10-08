@@ -1,7 +1,7 @@
 // Consent, instructions and the comprehension check. Text only here; the trial screens
 // are in display.js and the task timeline in task.js.
 
-import { BONUS, COMPREHENSION, CONTACT, FEEDBACK, PRACTICE_CRITERION, SCREENING, TIMING } from './config.js';
+import { BONUS, COMPREHENSION, CONTACT, FEEDBACK, practiceCriterion, QUESTIONNAIRE, SCREENING, TIMING } from './config.js';
 import { exampleScreen } from './display.js';
 import { formatDollars, maxBonus } from './bonus.js';
 
@@ -49,12 +49,19 @@ export function consentTrial(onDecline) {
 export function instructionsWithCheck(design, example, { onFail = null } = {}) {
   const practice = design.blocks.filter((b) => b.phase === 'practice');
   const test = design.blocks.filter((b) => b.phase === 'test');
-  const { window: WINDOW, minCorrect: MIN_CORRECT } = PRACTICE_CRITERION;
-  // Duration: test rounds plus ~30 practice rounds per practice block, ~1.2 s to answer per
-  // round, plus ~8 min of setup and instructions
+  // e.g. 'Block 1 ends once 11 of your last 12 answers are correct, block 2 once 9 of your last 10.'
+  const criteriaText = practice.filter((b) => b.criterion).map((b, i) => {
+    const { window: w, minCorrect: m } = practiceCriterion(b.ruleType);
+    return i === 0 ? `Block ${b.blockInPhase} ends once ${m} of your last ${w} answers are correct`
+      : `block ${b.blockInPhase} once ${m} of your last ${w}`;
+  }).join(', ') + '.';
+  // Duration: test rounds plus ~45 practice rounds per practice block, ~1.2 s to answer per
+  // round, plus ~12 min of setup, instructions and breaks (the 1.0 pilot: median 60 min
+  // without the questionnaire)
   const nTest = test.reduce((n, b) => n + b.trials.length, 0);
   const roundMs = TIMING.iti + 1200 + TIMING.feedback;
-  const minutes = Math.round(((nTest + 30 * practice.length) * roundMs) / 60000 + 8);
+  const minutes = Math.round(((nTest + 45 * practice.length) * roundMs) / 60000 + 12
+    + (QUESTIONNAIRE.enabled ? QUESTIONNAIRE.minutes : 0));
   const F = design.keys.cat1.toUpperCase();
   const J = design.keys.cat0.toUpperCase();
   const pct = (p) => `${Math.round(p * 100)}%`;
@@ -97,11 +104,12 @@ export function instructionsWithCheck(design, example, { onFail = null } = {}) {
     page(`<h2>Procedure</h2>
       <ul>
       <li>First, ${practice.length} practice block${practice.length > 1 ? 's' : ''}: each side shows one of
-        ${practice[0]?.size ?? 2} symbols. Each ends once ${MIN_CORRECT} of your last ${WINDOW} answers are correct.</li>
+        ${practice[0]?.size ?? 2} symbols. ${criteriaText}</li>
       <li>Then ${test.length} test blocks: each side shows one of ${test[0]?.size ?? 4} symbols,
         ${test[0]?.trials.length ?? 0} rounds each.</li>
       <li>Every block has <b>new</b> symbols, so you learn which pairs go with ${key(F)} and ${key(J)} from scratch.</li>
       <li>You can rest between blocks.</li>
+      ${QUESTIONNAIRE.enabled ? '<li>At the end, a few short questions about the task.</li>' : ''}
       <li>Expected duration: about ${minutes} minutes.</li></ul>
       <p class="center small">If the quick questions below are answered wrongly twice, or the first practice
       shows that the task is not a good match (for example, many answers too slow), the study ends early and you

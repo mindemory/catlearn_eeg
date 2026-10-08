@@ -133,3 +133,54 @@ html, body {
   margin: 0 auto 18px;
   display: inline-block;
 }
+
+/* post-task questionnaire (survey plugins): readable labels on the grey background */
+.jspsych-survey-likert-opts li,
+.jspsych-survey-likert-opts li label {
+  color: #f2f2f2;
+  font-size: 15px;
+}
+.jspsych-survey-likert-statement,
+.jspsych-survey-multi-choice-question,
+.jspsych-survey-text-question {
+  text-align: left;
+}
+.jspsych-survey-text textarea {
+  font-size: 16px;
+}
+/* radio buttons large enough to see which one is selected on the grey background */
+.jspsych-survey-multi-choice-option input[type="radio"],
+.jspsych-survey-likert-opts input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #1e6fd9;
+  vertical-align: middle;
+}
+/* horizontal options left-aligned under their (left-aligned) question */
+.jspsych-survey-multi-choice-horizontal {
+  text-align: left;
+}
+/* a block's symbols in the strategy questions: a labelled box for each side */
+.q-sides {
+  display: inline-flex;
+  gap: 28px;
+  margin: 10px 8px 4px 0;
+  vertical-align: middle;
+}
+.q-thumbs {
+  display: inline-block;
+  padding: 6px 10px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+}
+.q-side-label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.q-thumbs img {
+  width: 56px;
+  height: 56px;
+  margin-right: 4px;
+  vertical-align: middle;
+}

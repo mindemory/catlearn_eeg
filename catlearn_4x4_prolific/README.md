@@ -84,8 +84,29 @@ first study) a plain F/J categorisation task with a performance bonus.
        For exactly half each, run two Prolific studies, one per version, and exclude each
        other's participants.
 
-  Each practice block ends once 9 of the last 10 answers are correct
-  (`PRACTICE_CRITERION`), or after 80 rounds at the latest (flagged in the data).
+  Each practice block ends once enough of the last answers are correct
+  (`PRACTICE_CRITERION`): 11 of the last 12 for type I (the screening gate; since 1.1),
+  9 of the last 10 for XOR. At the latest it ends after 80 rounds (flagged in the data).
+
+## Post-task questionnaire
+
+Since version 1.1. It comes after the last test block and before the bonus screen, takes
+about 4 minutes, and its answers don't change the bonus (`src/questionnaire.js`;
+`QUESTIONNAIRE` in `src/config.js`; `?skip=questionnaire` leaves it out). Pages:
+
+| Page | Questions | Columns |
+|---|---|---|
+| difficulty | overall and per main block (first, second, third), 1 = very easy … 7 = very hard | `q_difficulty_overall`, `q_difficulty_block1..3` |
+| strategy_choice | hardest block; per block, what they mostly used (left symbol, right symbol, both together, guessed, not sure); found a rule? | `q_hardest_block`, `q_side_block1..3`, `q_noticed_rule` |
+| strategy_text | how they decided F or J; the rule, if found (free text) | `q_strategy`, `q_rule` |
+| effort | NASA-TLX items, 1–7: mental, physical, temporal demand, performance, effort, frustration | `q_tlx_mental`, `q_tlx_physical`, `q_tlx_temporal`, `q_tlx_performance`, `q_tlx_effort`, `q_tlx_frustration` |
+| engagement | focus, motivation by the bonus (1–7) | `q_focus`, `q_motivation` |
+| engagement_choice | distracted; wrote notes; handedness; video-game hours per week | `q_distracted`, `q_notes`, `q_handedness`, `q_gaming` |
+| nfc | Need for Cognition, 6-item short form, 1–5 (`_rev` items are reverse-scored) | `q_nfc1` … `q_nfc6` |
+| comments | anything else (optional) | `q_comments` |
+
+Each page is one row with `part = questionnaire` and `page`. Likert answers are 1-based
+(1 = the left label). Prolific's demographics export adds age, sex, country and so on.
 
 ## Fractals
 
@@ -144,6 +165,7 @@ The page loads jsPsych from unpkg.com, so the pilot machine needs internet. Open
 | `?debug=1` | **shortened blocks, for testing only**: test blocks 1 pass (16 rounds instead of 208), practice blocks at most 12 rounds. Every block start shows a DEBUG RUN banner, and the data have `debug = true` |
 | `?skip=intro` | skip consent, instructions and the quiz |
 | `?skip=calibration` | skip the card / blind-spot measurement (assumes 60 cm and a 96-dpi screen); combine as `?skip=intro,calibration` |
+| `?skip=questionnaire` | leave out the post-task questionnaire |
 | `?seed=123` | fixed design (version, practice rule, fractals, round order) |
 | `?version=A` | fixed test sequence version: `A` (A+AB in blocks 1–2) or `B` |
 | `?save=local` | download the data instead of uploading them (testing without adding a session to the dataset) |
@@ -191,7 +213,7 @@ Everything is in [`src/config.js`](src/config.js):
 | `RULES` | category 1 (F) / 0 (J) of every pair, for each 2×2 and 4×4 rule used. Generated from the task definitions in `kernel_model/kernel_modes.py`, the same as the task-type figures; pair = size · a + b. |
 | `SEQUENCES` | the test rules in order, for version A and version B |
 | `BLOCKS` | the blocks in order: phase, rule (a key, a list to pick from at random, or `seq:1` … `seq:3` for the participant's sequence), passes, and whether a practice criterion ends the block |
-| `PRACTICE_CRITERION` | the window and number correct that end a practice block |
+| `PRACTICE_CRITERION` | per rule type, the window and number correct that end a practice block |
 | `BONUS` | which phases count, and the per-block bonus tiers |
 | `SCREENING`, `COMPREHENSION` | which checks screen participants out, the screen-out payment, quiz attempts |
 | `TIMING`, `KEYS`, `LAYOUT`, `FEEDBACK` | durations (ms), the F/J keys, positions and sizes in degrees, feedback colours |
@@ -215,6 +237,7 @@ they stay correct when the design changes.
 | `src/display.js` | HTML for every screen (symbols, bull's eye, feedback circles and word) in degrees |
 | `src/task.js` | blocks: intro → rounds (iti → response → feedback) → block summary; practice criterion |
 | `src/instructions.js` | consent, instructions, comprehension quiz (2 attempts, then screened out) |
+| `src/questionnaire.js` | the post-task questionnaire (see above) |
 | `src/data.js` | Prolific IDs from the URL, tab-switch / full-screen tracking, file name, local download (online saving is the DataPipe extension, set up in `src/main.js`) |
 | `src/main.js` | puts it together: browser check → consent → full screen → calibration → instructions + quiz → blocks → final screen → save → Prolific |
 | `tools/bonus_payments.py` | Prolific bonus list from the data files (see below) |
@@ -255,6 +278,7 @@ Other rows:
 | `design` | the full design as JSON: rules, fractals |
 | `block_summary` | `block_rounds`, `block_pcorrect`, `block_n_late`, test accuracy so far; test blocks `block_bonus_usd`, `bonus_so_far_usd`; practice `practice_criterion_met` |
 | `screen_check`, `comprehension_check` | the screening checks; a screened-out participant has `screened_out` (`quiz`, `practice_type_I`, `practice_timeouts`, `browser_check`) on every row |
+| `questionnaire` | one row per questionnaire page (`page`), answers as `q_*` columns (see "Post-task questionnaire") |
 | `final` | `test_pcorrect`, `test_correct`, `test_rounds`, `block_bonuses_usd`, **`bonus_usd`**, the complete tab-switch / full-screen log (`interaction_log`), `finished_at` |
 | `iti`, `feedback` | timing checks |
 
@@ -293,25 +317,33 @@ folder `~/My Drive/DataPipe/catlearn_4x4/`, using DataPipe's jsPsych extension (
 
 Prolific pays bonuses separately from the base pay, after you approve submissions.
 
-1. Make sure all finished sessions' CSV files are in one folder, e.g. the Drive folder
-   itself, or `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/` after an analysis run.
-2. Run the payment script:
+1. **Get the files.** Running any `behav_4x4_prolific` analysis copies finished sessions
+   from the Drive folder into `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/data/`.
+   Or point the script at the Drive folder directly (step 2).
+2. **Run the payment script:**
 
    ```bash
-   python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4
+   python3 tools/bonus_payments.py
    ```
 
-   It recomputes every bonus from the test rounds' accuracy, checks it against the `bonus_usd` the
+   It reads `data/` and writes to `bonus/` next to it. For a different input folder, pass it
+   as the argument, e.g. `python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4`;
+   `--out` changes the output folder.
+
+   It recomputes every bonus from the test trials, checks it against the `bonus_usd` the
    experiment showed and saved, and writes two files:
    - `bonus_payments.txt` (`PROLIFIC_PID,amount` per line)
    - `bonus_report.csv` (every file with its checks)
 
-   Pilots (no Prolific ID) and files from the slot-machine pilot builds (task_version 3.x) are
-   skipped. Screened-out sessions get no bonus (Prolific pays their fixed screen-out reward).
+   **Skipped:**
+   - pilots (no Prolific ID);
+   - sessions without task trials;
+   - files from the slot-machine pilot builds (task_version 3.x);
+   - screened-out sessions, which get no bonus (Prolific pays their fixed screen-out reward).
+
    Only finished test blocks earn a bonus. Duplicate IDs are paid once and flagged.
-   Unfinished sessions are left out unless you pass `--include-incomplete`.
-3. On Prolific, open the study → Submissions → **Bulk bonus payments**, and paste the
-   contents of `bonus_payments.txt`.
+3. **On Prolific,** open the study → Submissions → **Bulk bonus payments**, and paste the
+   lines for the participants you haven't paid yet.
 
 If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to match.
 
@@ -333,8 +365,8 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
    - screen-out slots about half the places, e.g. 5 for 10;
    - copy its screen-out code into `PROLIFIC.screenOutCodes`, A and B.
 5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: about
-   55 minutes with the default design (3 × 208 test rounds at ~4.2 s, practice, ~8 min
-   of setup).
+   60 minutes with the default design (3 × 208 test rounds at ~4.2 s, practice, ~8 min
+   of setup, ~4 min of questionnaire).
 6. **Study description.** Say that participants need a **bank or ID card** for the screen
    setup. Mention the bonus ("up to $6, per block") and that the study may end early after
    the instructions or the first practice, paid $1.00. Budget up to $6 of bonus per
@@ -350,7 +382,10 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
 
 ## History
 
-- **Version 1.0 (current, the first study): F/J categorisation.**
+- **Version 1.1: post-task questionnaire.** It covers difficulty per block, strategy and
+  which side mattered, effort (NASA-TLX), engagement, and Need for Cognition. It comes
+  before the bonus screen, about 4 min.
+- **Version 1.0 (the first study): F/J categorisation.**
   - The slot machine, coins and coin bar are gone. Participants press F for one category
     and J for the other, with the same keys for everyone.
   - Rounds run automatically: 1 s fixation, then the pair with free viewing (no

@@ -21,6 +21,7 @@ export function urlParams() {
     version: q.get('version') ? q.get('version').toUpperCase() : null,
     skipIntro: (q.get('skip') || '').split(',').includes('intro'),
     skipCalibration: (q.get('skip') || '').split(',').includes('calibration'),
+    skipQuestionnaire: (q.get('skip') || '').split(',').includes('questionnaire'),
   };
 }
 
