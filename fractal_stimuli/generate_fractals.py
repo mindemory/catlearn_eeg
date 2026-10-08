@@ -20,6 +20,11 @@ parameters, measured area, brightness and chroma of each). make_fractal_sets.py 
 picks fractal sets from them using DreamSim distances (embed_dreamsim.py).
 
   ~/miniforge3/envs/kernelbehav/bin/python fractal_stimuli/generate_fractals.py --n 1500
+
+--lightness and --chroma override the profile. The vivid pool (2026-10-08: brighter than
+the background, stronger colour) was made with
+  ... generate_fractals.py --n 1500 --lightness 70 56 78 --chroma 60 \
+      --out ~/Documents/data/catlearn_eeg/fractal_pool_vivid/candidates
 """
 
 import argparse
@@ -130,13 +135,13 @@ def measure(img):
             "max_radius": r}
 
 
-def make_candidate(rng):
+def make_candidate(rng, lightness=LIGHTNESS, chroma=CHROMA):
     n_edges = rng.integers(5, 10, 3, endpoint=True)
     depth = rng.integers(3, 4, 3, endpoint=True)
     ga = rng.integers(-5, -2, 3, endpoint=True)
     hues = rng.choice(HUES, 3, replace=False)
     layers = [layer_polygon(n_edges[i], depth[i], EDGE_SIZE[i], ga[i]) for i in range(3)]
-    colors, chromas = zip(*(lch_to_rgb255(LIGHTNESS[i], CHROMA, hues[i]) for i in range(3)))
+    colors, chromas = zip(*(lch_to_rgb255(lightness[i], chroma, hues[i]) for i in range(3)))
     # equalise the filled area: area scales with the square of the coordinates
     area = measure(render(layers, colors, 1.0))["area"]
     scale = np.sqrt(TARGET_AREA / area)
@@ -152,13 +157,16 @@ def main():
     parser.add_argument("--n", type=int, default=1500, help="number of candidates")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=OUT_DIR)
+    parser.add_argument("--lightness", type=float, nargs=3, default=LIGHTNESS, metavar=("OUTER", "MIDDLE", "INNER"),
+                        help="L* of the three layers (default %(default)s; the background grey is L* 53.6)")
+    parser.add_argument("--chroma", type=float, default=CHROMA, help="C* of every layer, lowered per hue to the sRGB gamut")
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(args.seed)
     rows, k, rejected = [], 0, 0
     while k < args.n:
-        img, params = make_candidate(rng)
+        img, params = make_candidate(rng, args.lightness, args.chroma)
         m = measure(img)
         if m["max_radius"] > MAX_RADIUS:          # too spiky to fit the canvas at the common area
             rejected += 1

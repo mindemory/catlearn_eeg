@@ -40,6 +40,7 @@ Any design works, e.g. `3x3`, `2x2x2x2x2` or `4x2`.
 | `generate_fractals.py` | makes the candidate fractals (below) |
 | `embed_dreamsim.py` | computes DreamSim distances between all candidates (`dreamsim` env; weights in `~/Documents/data/catlearn_eeg/models/dreamsim`, 3 GB) |
 | `make_fractal_sets.py` | picks groups of equally distinct fractals for each design |
+| `similarity_matrices.py` | colour, shape and perceptual (DreamSim) similarity between all candidates, as heatmaps sorted by clustering, plus example fractals from the largest clusters (`<pool>/similarity/`) |
 
 ## How the fractals are matched
 
@@ -53,6 +54,54 @@ brighter or more colourful than others:
 | Chroma | 60–129 | 36–40: chroma 40 for every layer, lowered only for cyan-blue hues that a screen can't show at 40 (down to about 29) |
 | Hues | random | 3 of 12 equally spaced hues per fractal |
 | Area | 15–33% of the image | 22% for every fractal |
+
+### The vivid pool (October 2026)
+
+The fractals above looked dull and close to the background grey. A second pool raises
+both lightness and colour strength, still with one profile for every fractal:
+
+|   | Original pool | Vivid pool |
+|---|---|---|
+| Layer lightness (outer / middle / inner) | L* 62 / 48 / 68 | L* 70 / 56 / 78 |
+| Mean L* per fractal (background 53.6) | 57–63 | 62–74 |
+| Chroma | 40 (29–40 after the screen limit) | 60, lowered per hue to what the screen can show: 33–60 per layer, median 54 (cyan-blue lowest) |
+
+Above about L* 72, blues, purples and reds lose most of their available chroma (at L* 85
+some reach only 22). That is why the lightness stays moderate and the colour does the work.
+The shapes and hues are the same as in the original pool (same seed); only the colours
+differ, so the size and the tasks' `fractalImageScale` are unchanged.
+
+These are the fractals used from October 2026 on: both online tasks'
+`stimuli/fractal_groups/` hold the vivid `online_4x4` and `2x2x2` sets.
+
+**What drives the perceptual distances** (`similarity_matrices.py`, all 1,500 vivid
+candidates):
+- **Colour:** DreamSim similarity correlates 0.46 with colour similarity (same colours in
+  the same proportions).
+- **Shape:** it correlates 0.03 with shape similarity (overlap of the silhouettes).
+- **Clusters:** the perceptual clusters are colour schemes, e.g. cyan/blue/purple fractals
+  vs pink/orange ones.
+
+So groups matched in DreamSim distance are mostly matched in how different their colours
+are; the shapes add little.
+
+Commands (the same steps as above, into separate folders):
+
+```bash
+~/miniforge3/envs/kernelbehav/bin/python fractal_stimuli/generate_fractals.py --n 1500 --lightness 70 56 78 --chroma 60 --out ~/Documents/data/catlearn_eeg/fractal_pool_vivid/candidates
+```
+
+```bash
+~/miniforge3/envs/dreamsim/bin/python fractal_stimuli/embed_dreamsim.py --pool ~/Documents/data/catlearn_eeg/fractal_pool_vivid
+```
+
+```bash
+~/miniforge3/envs/kernelbehav/bin/python fractal_stimuli/make_fractal_sets.py 4x4 --pool ~/Documents/data/catlearn_eeg/fractal_pool_vivid --out ~/Documents/data/catlearn_eeg/fractal_sets_vivid/4x4
+```
+
+Sets made: `online_4x4` (the 4×4 task's 18 groups of 4 and 12 pairs), `2x2`, `2x2x2`,
+`2x2x2x2`, `4x4` and `3x2x2`, in `~/Documents/data/catlearn_eeg/fractal_sets_vivid/`. The
+within-group target is the vivid pool's own median distance.
 
 ## How the groups are picked
 
