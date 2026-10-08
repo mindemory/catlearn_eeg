@@ -127,7 +127,8 @@ export const GRADES = [
 // ---------------------------------------------------------------- participants and platform
 export const BROWSER = {
   minWidth: 1000,          // px; smaller windows are asked to enlarge, phones/tablets are excluded
-  minHeight: 650,
+  minHeight: 500,          // (the layout is only 7 deg tall; 650 excluded ordinary laptop windows)
+                           // Excluded participants leave through the screen-out path (main.js)
   allowMobile: false,
   minRefreshHz: 50,        // flagged in the data, not excluded
 };

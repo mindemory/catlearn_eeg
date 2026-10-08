@@ -18,7 +18,8 @@ const params = urlParams();
 const seed = params.seed ?? newSeed();
 const design = buildDesign(seed, { debug: params.debug, version: params.version });
 
-const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false, screenedOut: null };
+const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false, screenedOut: null,
+                finished: false };   // finished: reached the final screen (only then the completion code)
 const filename = dataFilename();                 // no participant label: prefix, start time, random tag
 const online = DATA.save === 'datapipe' && !params.simulate && params.save !== 'local';
 
@@ -62,7 +63,9 @@ const browserCheck = {
   minimum_width: BROWSER.minWidth,
   minimum_height: BROWSER.minHeight,
   inclusion_function: (d) => BROWSER.allowMobile || !d.mobile,
-  exclusion_message: () => '<p>Sorry, this study needs a computer with a keyboard. Please return it on Prolific.</p>',
+  // Excluded (window too small after the resize prompt, or a phone / tablet): out through the
+  // screen-out path, never the completion code. An empty message keeps showEnd()'s page.
+  exclusion_message: () => { markScreenedOut('browser_check'); return ''; },
   data: { part: 'browser_check' },
   on_finish: (data) => { data.low_refresh = data.vsync_rate !== null && data.vsync_rate < BROWSER.minRefreshHz; },
 };
@@ -97,14 +100,19 @@ const fullscreenOn = {
 // the DataPipe extension uploads when the experiment ends; locally: downloaded here).
 const screening = params.screen ?? !(params.debug || params.simulate);
 
-function screenOut(reason) {
-  if (saved.screenedOut) return;
+function markScreenedOut(reason) {
+  if (saved.screenedOut) return false;
   saved.screenedOut = reason;
   jsPsych.data.addProperties({ screened_out: reason });
   if (!online) {
     saveLocal(jsPsych, filename);
     Object.assign(saved, { ok: true, mode: 'local' });
   }
+  return true;
+}
+
+function screenOut(reason) {
+  if (!markScreenedOut(reason)) return;
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   // no end message: jsPsych would write it after on_finish, over showEnd()'s screen-out page
   jsPsych.getDisplayElement().innerHTML = '<div class="page center"><p>Saving your answers, please do not close this window...</p></div>';
@@ -145,6 +153,7 @@ const finale = {
     data.bonus_usd = totalBonus(task.state.blockBonuses);
     data.interaction_log = JSON.stringify(jsPsych.data.getInteractionData().values());
     data.finished_at = new Date().toISOString();
+    saved.finished = true;
   },
 };
 
@@ -172,8 +181,12 @@ function showEnd() {
     message += `<p class="small">${saved.error}</p>`;
   } else if (saved.screenedOut) {
     const code = PROLIFIC.screenOutCodes[design.version] ?? 'REPLACE';
-    message = '<p>Thank you for your time. Based on your answers so far, this study is not a good match for you, '
-      + `so it ends here. You will receive ${formatDollars(SCREENING.payUsd)} for taking part.</p>`;
+    message = saved.screenedOut === 'browser_check'
+      ? '<p>Thank you for your interest. This study needs a desktop or laptop computer with a browser window of at '
+        + `least ${BROWSER.minWidth} × ${BROWSER.minHeight} pixels, so it ends here. `
+        + `You will receive ${formatDollars(SCREENING.payUsd)} for your time.</p>`
+      : '<p>Thank you for your time. Based on your answers so far, this study is not a good match for you, '
+        + `so it ends here. You will receive ${formatDollars(SCREENING.payUsd)} for taking part.</p>`;
     if (isProlific(params) && !code.startsWith('REPLACE')) {
       message += '<p>Returning you to Prolific...</p>';
       setTimeout(() => { window.location.href = completionUrl(code); }, 3000);
@@ -182,6 +195,10 @@ function showEnd() {
     } else {
       message += `<p class="small">Pilot: screened out (${saved.screenedOut}). Data saved (${saved.mode}).</p>`;
     }
+  } else if (!saved.finished) {
+    // ended early for any other reason: never send the completion code
+    message = '<p>The study ended before its end. Please return it on Prolific ("Stop without completing"), '
+      + `and contact the researcher (${CONTACT.email}) if this was unexpected.</p>`;
   } else if (isProlific(params)) {
     message = '<p>Your answers are saved. Returning you to Prolific...</p>';
     setTimeout(() => { window.location.href = completionUrl(PROLIFIC.completionCodes[design.version]); }, 2000);

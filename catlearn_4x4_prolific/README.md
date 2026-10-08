@@ -56,8 +56,13 @@ first study) a plain F/J categorisation task with a performance bonus.
     keep only good learners.
   - **What the participant sees:** a thank-you page, then a return to Prolific with the
     study's screen-out code (`PROLIFIC.screenOutCodes`).
-  - **Data:** saved as usual, with `screened_out` = `quiz`, `practice_type_I` or
-    `practice_timeouts` on every row.
+  - **Data:** saved as usual, with `screened_out` = `quiz`, `practice_type_I`,
+    `practice_timeouts` or `browser_check` on every row.
+  - **The browser check also exits this way.** A window smaller than 1000 × 500 px after
+    the resize prompt, or a phone or tablet, gets `browser_check` and the screen-out code,
+    in debug and simulated runs too.
+  - **The completion code is sent only after the final screen.** Any other early end
+    asks the participant to return the study instead.
   - **Test runs:** debug and simulated runs skip screening unless the URL has `?screen=1`;
     `?screen=0` turns it off.
 
@@ -249,7 +254,7 @@ Other rows:
 | `comprehension` | quiz answers, `comprehension_passed`, `comprehension_attempt` |
 | `design` | the full design as JSON: rules, fractals |
 | `block_summary` | `block_rounds`, `block_pcorrect`, `block_n_late`, test accuracy so far; test blocks `block_bonus_usd`, `bonus_so_far_usd`; practice `practice_criterion_met` |
-| `screen_check`, `comprehension_check` | the screening checks; a screened-out participant has `screened_out` (`quiz`, `practice_type_I`, `practice_timeouts`) on every row |
+| `screen_check`, `comprehension_check` | the screening checks; a screened-out participant has `screened_out` (`quiz`, `practice_type_I`, `practice_timeouts`, `browser_check`) on every row |
 | `final` | `test_pcorrect`, `test_correct`, `test_rounds`, `block_bonuses_usd`, **`bonus_usd`**, the complete tab-switch / full-screen log (`interaction_log`), `finished_at` |
 | `iti`, `feedback` | timing checks |
 
