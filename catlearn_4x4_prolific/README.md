@@ -62,7 +62,7 @@ first study) a plain F/J categorisation task with a performance bonus.
 - **The design** (`BLOCKS`, `SEQUENCES` in `src/config.js`); every block has new fractals:
   1. **Practice 1** (2×2): type I, on A or B at random.
   2. **Practice 2** (2×2): XOR.
-  3. **Test** (4×4): three blocks of 128 rounds (8 passes of the 16 pairs), always in the
+  3. **Test** (4×4): three blocks of 208 rounds (13 passes of the 16 pairs), always in the
      order type VI → type X → type II:
 
      | Version | Block 1 | Block 2 | Block 3 |
@@ -116,7 +116,7 @@ Then open the experiment in Chrome or Firefox:
 
 | Address | What you get |
 |---|---|
-| <http://localhost:8000/> | **the real study**: full-length blocks (3 test blocks × 128 rounds, ~40 min). Use this for pilots whose data you want to analyse. |
+| <http://localhost:8000/> | **the real study**: full-length blocks (3 test blocks × 208 rounds, ~55 min). Use this for pilots whose data you want to analyse. |
 | <http://localhost:8000/?debug=1&skip=intro,calibration> | a quick check that everything works (~3 min): shortened blocks, with a yellow "DEBUG RUN" banner at every block start |
 
 Stop the server with Ctrl+C. After changing code, hard-reload the page (Cmd+Shift+R);
@@ -134,7 +134,7 @@ The page loads jsPsych from unpkg.com, so the pilot machine needs internet. Open
 
 | Option | Effect |
 |---|---|
-| `?debug=1` | **shortened blocks, for testing only**: test blocks 1 pass (16 rounds instead of 128), practice blocks at most 12 rounds. Every block start shows a DEBUG RUN banner, and the data have `debug = true` |
+| `?debug=1` | **shortened blocks, for testing only**: test blocks 1 pass (16 rounds instead of 208), practice blocks at most 12 rounds. Every block start shows a DEBUG RUN banner, and the data have `debug = true` |
 | `?skip=intro` | skip consent, instructions and the quiz |
 | `?skip=calibration` | skip the card / blind-spot measurement (assumes 60 cm and a 96-dpi screen); combine as `?skip=intro,calibration` |
 | `?seed=123` | fixed design (version, practice rule, fractals, round order) |
@@ -326,7 +326,8 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
    - screen-out slots about half the places, e.g. 5 for 10;
    - copy its screen-out code into `PROLIFIC.screenOutCodes`, A and B.
 5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: about
-   40 minutes with the default design.
+   55 minutes with the default design (3 × 208 test rounds at ~4.2 s, practice, ~8 min
+   of setup).
 6. **Study description.** Say that participants need a **bank or ID card** for the screen
    setup. Mention the bonus ("up to $6, per block") and that the study may end early after
    the instructions or the first practice, paid $1.00. Budget up to $6 of bonus per

@@ -50,9 +50,9 @@ export const SEQUENCES = {
 export const BLOCKS = [
   { phase: 'practice', rule: ['x2_I_A', 'x2_I_B'], reps: 20, criterion: true },
   { phase: 'practice', rule: 'x2_XOR', reps: 20, criterion: true },
-  { phase: 'test', rule: 'seq:1', reps: 8 },     // 128 rounds each
-  { phase: 'test', rule: 'seq:2', reps: 8 },
-  { phase: 'test', rule: 'seq:3', reps: 8 },
+  { phase: 'test', rule: 'seq:1', reps: 13 },    // 208 rounds each
+  { phase: 'test', rule: 'seq:2', reps: 13 },
+  { phase: 'test', rule: 'seq:3', reps: 13 },
 ];
 
 // Practice ends when at least `minCorrect` of the last `window` answers are correct (80%);
