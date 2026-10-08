@@ -57,7 +57,7 @@ export function instructionsWithCheck(design, example, { onFail = null } = {}) {
   }).join(', ') + '.';
   // Duration: test rounds plus ~45 practice rounds per practice block, ~1.2 s to answer per
   // round, plus ~10 min of setup, instructions and breaks (the 1.0 pilot: median 60 min
-  // without the questionnaire, with uncapped breaks; breaks are capped from 1.2)
+  // without the questionnaire, with uncapped breaks; breaks are now capped)
   const nTest = test.reduce((n, b) => n + b.trials.length, 0);
   const roundMs = (TIMING.iti[0] + TIMING.iti[1]) / 2 + 1200 + TIMING.feedback;
   const minutes = Math.round(((nTest + 45 * practice.length) * roundMs) / 60000 + 10

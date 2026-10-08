@@ -14,14 +14,14 @@
 // Each trial: fixation (TIMING.iti), then the pair with no fixation (participants look freely)
 // until F / J or TIMING.response, then feedback.
 
-export const VERSION = '1.2.0';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
-                                  // 1.0.1: practice criterion 9 of the last 10 (was 8).
-                                  // 1.1: post-task questionnaire; type-I practice criterion 11 of
-                                  // the last 12.
-                                  // 1.2: ITI jittered 1-1.3 s (was 1 s); bonus from 56%
-                                  // correct, up to $3; breaks capped at 90 s; plausible viewing
-                                  // distance 40-80 cm.
-                                  // The earlier slot-machine pilot builds saved task_version 3.x.
+export const VERSION = '1.0.0';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
+                                  // The pilot (2026-10-08, 5 participants of version A, saved as
+                                  // 1.0.0 / 1.0.1) ran an earlier setup: ITI 1 s, feedback 2 s,
+                                  // type-I practice 8-9 of 10, bonus from 50% (up to $6), no
+                                  // questionnaire, uncapped breaks. Its files have no iti_ms or
+                                  // bonus_tiers columns, which is how the analyses and the bonus
+                                  // script tell them apart. The earlier slot-machine pilot builds
+                                  // saved task_version 3.x.
 
 // ---------------------------------------------------------------- rules
 // Category (1 = F, 0 = J) of every pair: compound = size * a + b, where a and b (0 .. size-1)
@@ -103,10 +103,10 @@ export const LAYOUT = {
 // ---------------------------------------------------------------- timing (ms) and keys
 export const TIMING = {
   iti: [1000, 1300],  // fixation only before each pair (no fixation while the pair is on): uniform
-                      // between these bounds per trial, in 10 ms steps (saved as iti_ms); 1000 before 1.2
+                      // between these bounds per trial, in 10 ms steps (saved as iti_ms); 1000 in the pilot
   response: 4000,     // symbols on screen until a key press or this deadline
-  feedback: 2000,     // feedback circles
-  breakMax: 90000,    // break (block summary) screens move on after this, with a countdown (1.2 on)
+  feedback: 1500,     // feedback circles (2000 in the pilot)
+  breakMax: 90000,    // break (block summary) screens move on after this, with a countdown
 };
 
 // Response keys (either case): the same for every participant. cat1 answers category 1, cat0
@@ -122,8 +122,8 @@ export const FEEDBACK = { correct: '#2ecc40', wrong: '#ff4136', late: '#ff4136' 
 // reached. Up to $1 per block, $3 in all; no penalties. Participants are told the rule in
 // the instructions and see each block's bonus on its break screen; nothing during rounds.
 // The first tier starts at 56%, above chance: pressing one key (or guessing) gives 50% and
-// earns nothing. Before 1.2: 50% $0.50, 60% $1.00, 70% $2.00 ($6 in all; keep
-// tools/bonus_payments.py in sync, it pays each session by its task_version).
+// earns nothing. The pilot paid 50% $0.50, 60% $1.00, 70% $2.00 ($6 in all). The tiers are
+// saved with every session (bonus_tiers), and tools/bonus_payments.py pays by them.
 export const BONUS = {
   phases: ['test'],
   tiers: [            // [minimum proportion correct, dollars for the block]
@@ -156,7 +156,7 @@ export const BROWSER = {
 // still implausible we assume the values below and flag the participant.
 export const CALIBRATION = {
   blindspotReps: 5,
-  plausibleDistanceMm: [400, 800],   // arm's length; 300-1000 before 1.2 (a pilot reading of 996 passed)
+  plausibleDistanceMm: [400, 800],   // arm's length; 300-1000 in the pilot (a reading of 996 passed)
   plausiblePxPerMm: [1.5, 12],
   assumedDistanceMm: 600,
   assumedPxPerMm: 96 / 25.4,      // a standard 96-dpi screen

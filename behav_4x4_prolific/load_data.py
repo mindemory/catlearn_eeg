@@ -15,7 +15,8 @@ Kept: task_version 1.x (the F/J study), not debug runs, and sessions with at lea
 trial. Left out, and listed: sessions without trials (e.g. excluded by the browser check),
 the slot-machine pilot builds (3.x).
 
-Trial columns: participant, version (A / B), block, phase ('practice' / 'test'), rule,
+Trial columns: participant, version (A / B), run ('pilot': the 2026-10-08 pilot, ITI 1 s and
+feedback 2 s, recognised by having no iti_ms column; 'main': everything since), block, phase ('practice' / 'test'), rule,
 trial_in_block, rep (pass through the pairs), compound, level_a, level_b, category
 (1 = F, 0 = J), choice (1 = pressed F, 0 = J, NaN = late), correct, timeout, rt (ms,
 NaN = late).
@@ -73,6 +74,7 @@ def load_file(path):
     pid = df["prolific_pid"].dropna().astype(str)
     pid = pid[pid != ""]
     r = r.reindex(columns=COLUMNS[2:]).copy()
+    r.insert(0, "run", "main" if "iti_ms" in df.columns else "pilot")   # the pilot had a fixed 1 s ITI
     r.insert(0, "version", first.get("version"))
     r.insert(0, "participant", pid.iloc[0] if len(pid) else path.stem.replace("catlearn_online_", ""))
     for c in ("correct", "timeout"):

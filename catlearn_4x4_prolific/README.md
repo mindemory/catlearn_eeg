@@ -17,14 +17,14 @@ first study) a plain F/J categorisation task with a performance bonus.
 
   | Step | What happens | Duration |
   |---|---|---|
-  | iti | fixation only (participants are asked to look at it) | 1–1.3 s, jittered per round (`iti_ms`; 1 s before 1.2) |
+  | iti | fixation only (participants are asked to look at it) | 1–1.3 s, jittered per round (`iti_ms`; 1 s in the pilot) |
   | response | the two symbols, no fixation (free viewing), until `F` / `J` (either case) | up to 4 s |
-  | feedback | green circles around both symbols if correct, red if wrong or too slow; no text | 2 s |
+  | feedback | green circles around both symbols if correct, red if wrong or too slow; no text | 1.5 s (2 s in the pilot) |
 
   Rounds follow each other automatically; there is a break screen between blocks, which
   also asks participants to sit at about the same distance from the screen as at the start
   (the screen calibration is done once, at the start). Breaks are capped at 90 s
-  (`TIMING.breakMax`, since 1.2): a countdown shows, then the next block's intro comes up
+  (`TIMING.breakMax`): a countdown shows, then the next block's intro comes up
   and waits for SPACE (`break_timed_out` in the data).
 - **No points on screen.** There are no coins, scores or bars during the rounds.
   Participants are told about the bonus in the instructions, see each test block's bonus on
@@ -41,8 +41,9 @@ first study) a plain F/J categorisation task with a performance bonus.
 
   Up to $3 over the three test blocks. There are no penalties, so the bonus never reduces
   the base pay. The first tier starts above chance, so guessing or pressing one key (50%)
-  earns nothing. Before 1.2 the tiers were 50% $0.50, 60% $1.00, 70% $2.00 (up to $6);
-  `tools/bonus_payments.py` pays each session by the tiers of its own `task_version`.
+  earns nothing. The pilot's tiers were 50% $0.50, 60% $1.00, 70% $2.00 (up to $6). Each
+  session saves the tiers it ran with (`bonus_tiers`), and `tools/bonus_payments.py` pays
+  by them.
 - **Screening** (`SCREENING` in `src/config.js`, Prolific "custom screening"). Participants
   who are not a good fit leave early with a fixed $1.00 and don't use up a place:
 
@@ -88,12 +89,12 @@ first study) a plain F/J categorisation task with a performance bonus.
        other's participants.
 
   Each practice block ends once enough of the last answers are correct
-  (`PRACTICE_CRITERION`): 11 of the last 12 for type I (the screening gate; since 1.1),
+  (`PRACTICE_CRITERION`): 11 of the last 12 for type I (the screening gate; 8–9 of 10 in the pilot),
   9 of the last 10 for XOR. At the latest it ends after 80 rounds (flagged in the data).
 
 ## Post-task questionnaire
 
-Since version 1.1. It comes after the last test block and before the bonus screen, takes
+Added after the pilot. It comes after the last test block and before the bonus screen, takes
 about 4 minutes, and its answers don't change the bonus (`src/questionnaire.js`;
 `QUESTIONNAIRE` in `src/config.js`; `?skip=questionnaire` leaves it out). Pages:
 
@@ -199,7 +200,7 @@ After full screen, `src/calibration.js` runs jsPsych's virtual chinrest (~2 min)
 From these, pixels per degree = 2 · distance · tan(0.5°) · pixels per mm, applied as the
 CSS variable `--deg`.
 
-- **Implausible measurements.** If the distance is outside 40–80 cm (30–100 cm before 1.2) or the card outside
+- **Implausible measurements.** If the distance is outside 40–80 cm (30–100 cm in the pilot) or the card outside
   1.5–12 px/mm, the measurement is repeated once, telling the participant to sit at arm's
   length and whether to move closer or back. If it is still off, the experiment
   assumes 60 cm and/or a 96-dpi screen, and records which in `calibration_source`.
@@ -368,9 +369,9 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
    - screen-out reward $1.00, matching `SCREENING.payUsd`;
    - screen-out slots about half the places, e.g. 5 for 10;
    - copy its screen-out code into `PROLIFIC.screenOutCodes`, A and B.
-5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: 65
-   minutes with the default design (3 × 208 test rounds at ~4.35 s, practice, setup,
-   breaks of up to 90 s, ~4 min of questionnaire; the instructions say about 66).
+5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: 60
+   minutes with the default design (3 × 208 test rounds at ~3.85 s, practice, setup,
+   breaks of up to 90 s, ~4 min of questionnaire; the instructions say about 60).
 6. **Study description.** Say that participants need a **bank or ID card** for the screen
    setup. Mention the bonus ("up to $3, $1 per block, from 56% correct") and that the study
    may end early after the instructions or the first practice, paid $1.00. Budget up to $3
@@ -386,16 +387,21 @@ If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to 
 
 ## History
 
-- **Version 1.2: timing, bonus and calibration.**
+- **After the pilot (task_version stays 1.0.0).** The pilot (2026-10-08, 5 participants of
+  version A) ran with ITI 1 s, feedback 2 s, a type-I gate of 8–9 of the last 10, bonus
+  tiers from 50% (up to $6), no questionnaire and uncapped breaks. Since then:
   - ITI jittered uniformly between 1 and 1.3 s (10 ms steps), saved per round as `iti_ms`.
-  - Bonus tiers from 56% correct: $0.25 / $0.50 / $1.00 per block, up to $3.
+  - Feedback 1.5 s.
+  - Type-I practice ends at 11 of the last 12 correct (XOR: 9 of 10, not a gate).
+  - Bonus tiers from 56% correct: $0.25 / $0.50 / $1.00 per block, up to $3; each session
+    saves its tiers (`bonus_tiers`).
   - Breaks capped at 90 s, with a countdown.
   - Plausible viewing distance 40–80 cm (a 99.6 cm pilot reading had passed the old
     30–100 cm range).
-- **Version 1.1: post-task questionnaire and a stricter type-I gate.** The questionnaire
-  covers difficulty per block, strategy per block (with that block's symbols shown),
-  effort (NASA-TLX), engagement, and Need for Cognition, before the bonus screen, about
-  4 min. The type-I practice ends at 11 of the last 12 correct (XOR: 9 of 10, not a gate).
+  - Post-task questionnaire: difficulty per block, strategy per block (with that block's
+    symbols shown), effort (NASA-TLX), engagement, and Need for Cognition, before the
+    bonus screen, about 4 min.
+  The pilot's files have no `iti_ms` or `bonus_tiers` columns, which tells them apart.
 - **Version 1.0 (the first study): F/J categorisation.**
   - The slot machine, coins and coin bar are gone. Participants press F for one category
     and J for the other, with the same keys for everyone.

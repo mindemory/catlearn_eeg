@@ -70,6 +70,7 @@ def session_info(df):
     pid = str(first(df, "prolific_pid"))
     out = {
         "participant": pid, "version": first(df, "version"), "task_version": first(df, "task_version"),
+        "run": "main" if "iti_ms" in df.columns else "pilot",
         "file": first(df, "session_file"), "started_at": first(df, "started_at"),
         "finished": df["part"].eq("final").any(),
         "browser": f"{first(df, 'browser')} {first(df, 'browser_version')}", "os": first(df, "os"),
@@ -159,7 +160,7 @@ def md_table(df):
 def write_md(df, path, title):
     df = df.assign(id=df["participant"].str[:8])
     sections = {
-        "Session": ["id", "task_version", "started_at", "browser", "os", "screen", "refresh_hz"],
+        "Session": ["id", "run", "task_version", "started_at", "browser", "os", "screen", "refresh_hz"],
         "Setup and attention": ["id", "view_dist_cm", "calibration_attempts", "px_per_deg", "quiz_attempts",
                                 "blur_count", "fullscreen_exits"],
         "Time (minutes)": ["id", "setup_min", "practice1_min", "practice2_min", "test1_break_min", "test1_min",

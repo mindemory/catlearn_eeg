@@ -7,7 +7,7 @@
 // download the CSV instead.
 
 import { calibrationTimeline } from './calibration.js';
-import { BROWSER, CONTACT, DATA, PROLIFIC, QUESTIONNAIRE, SCREENING } from './config.js';
+import { BONUS, BROWSER, CONTACT, DATA, PROLIFIC, QUESTIONNAIRE, SCREENING } from './config.js';
 import { completionUrl, dataFilename, isProlific, onInteraction, saveLocal, sessionProperties, urlParams } from './data.js';
 import { buildDesign, designImages, newSeed } from './design.js';
 import { consentTrial, instructionsWithCheck } from './instructions.js';
@@ -152,6 +152,7 @@ const finale = {
     data.test_rounds = task.state.testTrials;
     data.block_bonuses_usd = JSON.stringify(task.state.blockBonuses.map((x) => Math.round(x * 100) / 100));
     data.bonus_usd = totalBonus(task.state.blockBonuses);
+    data.bonus_tiers = JSON.stringify(BONUS.tiers);       // the tiers this session was paid by
     data.interaction_log = JSON.stringify(jsPsych.data.getInteractionData().values());
     data.finished_at = new Date().toISOString();
     saved.finished = true;

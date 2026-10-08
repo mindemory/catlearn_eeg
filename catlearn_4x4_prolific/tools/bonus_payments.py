@@ -6,9 +6,9 @@ checks it against what the experiment showed and saved. Per bonus block, from it
 proportion correct (late answers wrong), the amount of the highest tier reached (BONUS.tiers
 in src/config.js):
 
-  task_version 1.2 on:  below 56% $0 · 56% $0.25 · 60% $0.50 · 70% or more $1.00
-  1.0 and 1.1:          below 50% $0 · 50% $0.50 · 60% $1.00 · 70% or more $2.00
-summed over blocks, rounded to cents. Each session is paid by the tiers of its own task_version.
+  now (saved in each file as bonus_tiers):  below 56% $0 · 56% $0.25 · 60% $0.50 · 70% or more $1.00
+  the pilot (files without bonus_tiers):    below 50% $0 · 50% $0.50 · 60% $1.00 · 70% or more $2.00
+summed over blocks, rounded to cents. Each session is paid by the tiers it ran with.
 
 Writes:
   bonus_payments.txt   "PROLIFIC_PID,amount" per line: paste into Prolific's
@@ -33,6 +33,7 @@ behav_4x4_prolific; see its load_data.py) and writes to ROOT/bonus/, where ROOT 
 import argparse
 import csv
 import glob
+import json
 import os
 import sys
 
@@ -41,17 +42,17 @@ ROOT = os.path.expanduser("~/Documents/data/catlearn_eeg/catlearn_4x4_prolific")
 csv.field_size_limit(sys.maxsize)   # the 'final' row holds the full interaction log
 
 
-# BONUS.tiers in src/config.js, by the task_version the session ran
-TIERS = [(0.56, 0.25), (0.6, 0.5), (0.7, 1.0)]          # 1.2 on: up to $1 per block
-TIERS_BEFORE_1_2 = [(0.5, 0.5), (0.6, 1.0), (0.7, 2.0)]  # 1.0, 1.1: up to $2 per block
+# BONUS.tiers in src/config.js. Every session saves the tiers it ran with (bonus_tiers, on the
+# final row); the pilot's files predate that and used PILOT_TIERS.
+PILOT_TIERS = [(0.5, 0.5), (0.6, 1.0), (0.7, 2.0)]       # up to $2 per block
 
 
-def tiers_for(task_version):
-    major, minor = (int(x) for x in (task_version.split(".") + ["0", "0"])[:2])
-    return TIERS_BEFORE_1_2 if (major, minor) < (1, 2) else TIERS
+def tiers_for(rows):
+    saved = next((r["bonus_tiers"] for r in rows if r.get("bonus_tiers")), "")
+    return [tuple(t) for t in json.loads(saved)] if saved else PILOT_TIERS
 
 
-def block_bonus(p_correct, tiers=TIERS):
+def block_bonus(p_correct, tiers):
     usd = 0.0
     for minimum, amount in tiers:
         if p_correct >= minimum:
@@ -93,7 +94,7 @@ def main():
                 blocks.setdefault(r["block"], []).append(r["correct"] == "true")
         p = sum(r["correct"] == "true" for r in counted) / len(counted) if counted else 0.0
         screened = next((r["screened_out"] for r in rows if r.get("screened_out")), "")
-        tiers = tiers_for(next((r["task_version"] for r in rows if r.get("task_version")), "1.2"))
+        tiers = tiers_for(rows)
         usd = 0.0 if screened else round(sum(block_bonus(sum(c) / len(c), tiers) for c in blocks.values()) + 1e-9, 2)
         final = next((r for r in rows if r.get("part") == "final"), None)
         checks = [f"screened out ({screened}): no bonus"] if screened else []
