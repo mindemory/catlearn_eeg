@@ -14,7 +14,8 @@
 // Each trial: fixation (TIMING.iti), then the pair with no fixation (participants look freely)
 // until F / J or TIMING.response, then feedback.
 
-export const VERSION = '1.0.0';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
+export const VERSION = '1.0.1';   // the first study: F/J categorisation, VI -> X -> II, free viewing.
+                                  // 1.0.1: practice criterion 9 of the last 10 (was 8).
                                   // The earlier slot-machine pilot builds saved task_version 3.x.
 
 // ---------------------------------------------------------------- rules
@@ -55,9 +56,10 @@ export const BLOCKS = [
   { phase: 'test', rule: 'seq:3', reps: 13 },
 ];
 
-// Practice ends when at least `minCorrect` of the last `window` answers are correct (80%);
+// Practice ends when at least `minCorrect` of the last `window` answers are correct (90%; a
+// guesser reaches 9 of 10 within 80 trials 26% of the time, 8 of 10 69%);
 // at the latest after `reps` passes (flagged in the data if never met)
-export const PRACTICE_CRITERION = { window: 10, minCorrect: 8 };
+export const PRACTICE_CRITERION = { window: 10, minCorrect: 9 };
 
 // ---------------------------------------------------------------- stimuli
 // Fractals matched in brightness, colourfulness and size, in groups whose members are all

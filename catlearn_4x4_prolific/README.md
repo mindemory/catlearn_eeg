@@ -46,7 +46,7 @@ first study) a plain F/J categorisation task with a performance bonus.
   | Check | When |
   |---|---|
   | the comprehension quiz failed twice (`COMPREHENSION.maxAttempts`) | right after the instructions, ~5 min in |
-  | the type-I practice not passed (8 of the last 10 correct within 80 rounds) | after practice 1 |
+  | the type-I practice not passed (9 of the last 10 correct within 80 rounds) | after practice 1 |
   | more than 20% of practice rounds unanswered | after each practice block |
 
   - **Following Prolific's policy:** comprehension checks come right after the
@@ -84,7 +84,7 @@ first study) a plain F/J categorisation task with a performance bonus.
        For exactly half each, run two Prolific studies, one per version, and exclude each
        other's participants.
 
-  Each practice block ends once 8 of the last 10 answers are correct
+  Each practice block ends once 9 of the last 10 answers are correct
   (`PRACTICE_CRITERION`), or after 80 rounds at the latest (flagged in the data).
 
 ## Fractals
