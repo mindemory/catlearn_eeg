@@ -53,7 +53,7 @@ def participant_id(df, path):
             v = v[(v != "") & (v != "pilot")]
             if len(v):
                 return v.iloc[0]
-    return path.stem.replace("noise_discrim_", "")
+    return session_key(path).replace("noise_discrim_", "")
 
 
 def target_ms(df):
