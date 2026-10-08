@@ -1,58 +1,81 @@
-# catlearn_4x4_prolific: slot-machine task (jsPsych)
+# catlearn_4x4_prolific: F/J category learning, 4×4 (jsPsych)
 
 Online category-learning experiment for Prolific, in jsPsych 8. It started as a rewrite of
-Heeseung Lee's PsychoPy experiment (`~/Documents/heeseungStuff/Exp_CatLearn`). It is now a
-self-paced slot machine with two symbols and a performance bonus.
+Heeseung Lee's PsychoPy experiment (`~/Documents/heeseungStuff/Exp_CatLearn`), was a slot
+machine with coins in the pilot builds (task_version 3.x), and is now (task_version 1.0, the
+first study) a plain F/J categorisation task with a performance bonus.
 
-- **The machine.** Two symbols (fractals) sit 6° left (A) and right (B) of a bull's-eye
-  fixation, inside a slot-machine frame with a lever. Each side shows one of 2 fractals in
-  practice (2×2) and one of 4 in the test (4×4).
+- **The screen.** Two symbols (fractals) sit 6° left (A) and right (B) of the centre.
+  Participants look freely while the symbols are on; a bull's-eye fixation appears only
+  between rounds, so every round starts from the centre. Each side shows one of 2
+  fractals in practice (2×2) and one of 4 in the test
+  (4×4).
+- **The task.** Every pair belongs to one of two categories. Participants press **F** for
+  one and **J** for the other; the keys are the same for everyone (`KEYS`: F = category 1
+  of `RULES`). They learn from the feedback after every answer.
 - **A round:**
 
   | Step | What happens | Duration |
   |---|---|---|
-  | wait | machine + fixation only; `SPACE` pulls the lever, or the round starts by itself | up to 3 s |
-  | pull | the lever swings down and back | 0.4 s |
-  | response | the two symbols: "Will this pair win?" `F` / `J` (either case) | up to 4 s |
-  | feedback | green circles around both symbols if correct, red if wrong or late; the fixation stays on | 2 s |
+  | iti | fixation only (participants are asked to look at it) | 1 s |
+  | response | the two symbols, no fixation (free viewing), until `F` / `J` (either case) | up to 4 s |
+  | feedback | green circles around both symbols if correct, red if wrong or too slow; no text | 2 s |
 
-  Which key means YES is randomised per participant (F = YES for about half).
-- **Coins:**
+  Rounds follow each other automatically; there is a break screen between blocks.
+- **No points on screen.** There are no coins, scores or bars during the rounds.
+  Participants are told about the bonus in the instructions, see each test block's bonus on
+  its break screen, and the total on the final screen.
+- **The bonus** (`BONUS` in `src/config.js`). It is paid on top of the Prolific base pay,
+  per test block, from that block's proportion correct; late answers count as wrong:
 
-  | Outcome | Coins |
+  | Correct in the block | Bonus for the block |
   |---|---|
-  | correct prediction | **+10** |
-  | wrong prediction | **−5** |
-  | late (no key within 4 s) | **−5** |
+  | below 50% | $0.00 |
+  | 50% to 60% | $0.50 |
+  | 60% to 70% | $1.00 |
+  | 70% or more | $2.00 |
 
-  A thin bar at the top of the screen shows the coins (labelled in coins), filling toward
-  the most the phase can pay. It is grey and labelled "practice" in practice blocks.
-- **The bonus.** Coins from the test blocks are paid on top of the Prolific base pay:
-  **500 coins = $1**, never below $0. Participants see coins throughout; the dollar
-  amount appears only in the instructions (the rate) and on the final screen.
+  Up to $6 over the three test blocks. There are no penalties, so the bonus never reduces
+  the base pay. 50% is chance: a pure guesser reaches 50% in about half the blocks and
+  averages about $0.80 in all.
+- **Screening** (`SCREENING` in `src/config.js`, Prolific "custom screening"). Participants
+  who are not a good fit leave early with a fixed $1.00 and don't use up a place:
 
-  | Performance on the 384 test rounds | Coins | Bonus |
-  |---|---|---|
-  | guessing | ~960 | ~$1.92 |
-  | 80% correct | ~2,690 | ~$5.38 |
-  | perfect | 3,840 | $7.68 |
+  | Check | When |
+  |---|---|
+  | the comprehension quiz failed twice (`COMPREHENSION.maxAttempts`) | right after the instructions, ~5 min in |
+  | the type-I practice not passed (8 of the last 10 correct within 80 rounds) | after practice 1 |
+  | more than 20% of practice rounds unanswered | after each practice block |
 
-- **The design** (`BLOCKS`, `TEST_TYPES` in `src/config.js`); every block is a new machine
-  with new fractals:
+  - **Following Prolific's policy:** comprehension checks come right after the
+    instructions, with two attempts. The screens are early in the session, and screen-outs
+    get a fixed payment.
+  - **Not a screen:** the XOR practice. It is genuinely hard, and screening on it would
+    keep only good learners.
+  - **What the participant sees:** a thank-you page, then a return to Prolific with the
+    study's screen-out code (`PROLIFIC.screenOutCodes`).
+  - **Data:** saved as usual, with `screened_out` = `quiz`, `practice_type_I` or
+    `practice_timeouts` on every row.
+  - **Test runs:** debug and simulated runs skip screening unless the URL has `?screen=1`;
+    `?screen=0` turns it off.
+
+- **The design** (`BLOCKS`, `SEQUENCES` in `src/config.js`); every block has new fractals:
   1. **Practice 1** (2×2): type I, on A or B at random.
   2. **Practice 2** (2×2): XOR.
-  3. **Test** (4×4): 3 blocks of 128 rounds (8 passes of the 16 pairs). Each participant
-     gets one type at random from `STUDY` in `src/config.js`:
-     - **Pilot** (`STUDY.phase = 'pilot'`): types VI, X, XV and XVI, 10 participants each.
-     - **Main study** (`'main'`): all 7 types, I, VI, X, XII, XIV, XV and XVI, 30 each.
-     - **Exact counts:** random draws don't give exact counts per type. For those, run one
-       Prolific study per type, with `&type=XV` (etc.) added to its study URL and that many
-       places, and exclude participants of the other studies. `&first=A` / `&first=B`
-       also fixes the version order, for exactly half each.
-     - Blocks 1–2 use its A-dominant or its B-dominant version (random). Block 3 uses the
-       other version (A and B swapped).
-     - Type XVI is pure XOR and has no A/B version, so its third block only brings new
-       fractals.
+  3. **Test** (4×4): three blocks of 128 rounds (8 passes of the 16 pairs), always in the
+     order type VI → type X → type II:
+
+     | Version | Block 1 | Block 2 | Block 3 |
+     |---|---|---|---|
+     | A (half the participants) | VI, A+AB | X, A+AB | II, A+B+AB |
+     | B (the other half) | VI, B+AB | X, B+AB | II, A+B+AB |
+
+     - Rules come from `kernel_model/kernel_modes.py` (`Design('4x4')`).
+     - Type II weighs A and B equally, so it has no A/B version and block 3 is the same
+       for both groups.
+     - The version is random per participant, or fixed with `?version=A` / `?version=B`.
+       For exactly half each, run two Prolific studies, one per version, and exclude each
+       other's participants.
 
   Each practice block ends once 8 of the last 10 answers are correct
   (`PRACTICE_CRITERION`), or after 80 rounds at the latest (flagged in the data).
@@ -63,11 +86,14 @@ The symbols are made so that no fractal stands out and every block is equally ha
 apart. They come from [`../fractal_stimuli`](../fractal_stimuli), which documents how they
 are made:
 
-- **Matched:** every fractal has the same lightness profile, chroma and area.
+- **Matched and bright:** every fractal has the same lightness profile, CIE L* 70 / 56 / 78
+  (outer / middle / inner layer), so each is clearly brighter than the grey background
+  (L* 53.6). They also share chroma (60, lowered per hue to what a screen can show) and
+  area.
 - **Groups:** the set has 18 groups of 4 (test) and 12 pairs (practice). Within each
   group, every pairwise DreamSim distance (a perceptual similarity network) is within
-  0.0075 of 0.256, so every group is equally hard.
-- **No near-duplicates:** no two of the 96 fractals are closer than 0.162.
+  0.0075 of 0.257, so every group is equally hard.
+- **No near-duplicates:** no two of the 96 fractals are closer than 0.161.
 
 Each side of a block shows one whole group, which is never used again for that
 participant. `stimuli/fractal_groups/` also holds the groups (`groups.js`, imported by
@@ -111,9 +137,8 @@ The page loads jsPsych from unpkg.com, so the pilot machine needs internet. Open
 | `?debug=1` | **shortened blocks, for testing only**: test blocks 1 pass (16 rounds instead of 128), practice blocks at most 12 rounds. Every block start shows a DEBUG RUN banner, and the data have `debug = true` |
 | `?skip=intro` | skip consent, instructions and the quiz |
 | `?skip=calibration` | skip the card / blind-spot measurement (assumes 60 cm and a 96-dpi screen); combine as `?skip=intro,calibration` |
-| `?seed=123` | fixed design (test type and order, rules, fractals, round order, keys) |
-| `?type=XV` | fixed test type (any key of `TEST_TYPES`, also outside the current `STUDY` phase) |
-| `?first=A` | fixed version order: A-dominant version in blocks 1–2 (`B` for the reverse) |
+| `?seed=123` | fixed design (version, practice rule, fractals, round order) |
+| `?version=A` | fixed test sequence version: `A` (A+AB in blocks 1–2) or `B` |
 | `?save=local` | download the data instead of uploading them (testing without adding a session to the dataset) |
 | `?simulate=1` | jsPsych plays the whole experiment by itself and downloads the data (never uploads) |
 | `?simulate=visual` | the same, but at real speed on screen |
@@ -126,7 +151,8 @@ the URL the run counts as a pilot (`participant = pilot`) and never redirects to
 Every position and size in `LAYOUT` (`src/config.js`) is in degrees of visual angle. The
 symbols are drawn at the EEG task's scale: 4° is the square that encloses the MATLAB task's
 fractals. The new fractals have the same median extent and area; the spikiest reach 4.3°.
-They are centred 6° left and right of fixation. The bull's eye is 0.6° (0.2° centre, 0.15° cross).
+They are centred 6° left and right of the centre. The bull's eye (between rounds) is 0.6°
+(0.2° centre, 0.15° cross).
 
 To turn degrees into pixels the experiment needs each participant's screen and distance.
 After full screen, `src/calibration.js` runs jsPsych's virtual chinrest (~2 min):
@@ -144,8 +170,8 @@ CSS variable `--deg`.
 - **Implausible measurements.** If the distance is outside 30–100 cm or the card outside
   1.5–12 px/mm, the measurement is repeated once. If it is still off, the experiment
   assumes 60 cm and/or a 96-dpi screen, and records which in `calibration_source`.
-- **Window too small.** If the whole layout (24° × 12.5°, including the frame and lever)
-  does not fit the window, everything shrinks by the same factor (`layout_scale` < 1).
+- **Window too small.** If the whole layout (19° × 7°: both symbols and their feedback
+  circles) does not fit the window, everything shrinks by the same factor (`layout_scale` < 1).
 - **Why not webcam eye tracking?** It can't measure viewing distance reliably; the blind
   spot is the standard online method.
 
@@ -155,18 +181,19 @@ Everything is in [`src/config.js`](src/config.js):
 
 | Setting | What it holds |
 |---|---|
-| `RULES` | win (1) / lose (0) of every pair, for each 2×2 and 4×4 rule. Generated from the task definitions in `kernel_model/kernel_modes.py`, the same as the task-type figures; pair = size · a + b. |
-| `TEST_TYPES` | the test types, each as [A-dominant, B-dominant] rule |
-| `BLOCKS` | the blocks in order: phase, rule (a key, a list to pick from at random, or `test:first` / `test:second`), passes, and whether a practice criterion ends the block |
+| `RULES` | category 1 (F) / 0 (J) of every pair, for each 2×2 and 4×4 rule used. Generated from the task definitions in `kernel_model/kernel_modes.py`, the same as the task-type figures; pair = size · a + b. |
+| `SEQUENCES` | the test rules in order, for version A and version B |
+| `BLOCKS` | the blocks in order: phase, rule (a key, a list to pick from at random, or `seq:1` … `seq:3` for the participant's sequence), passes, and whether a practice criterion ends the block |
 | `PRACTICE_CRITERION` | the window and number correct that end a practice block |
-| `REWARD` | coins per correct / wrong / late answer, which phases are paid, coins per dollar, minimum and maximum bonus |
-| `TIMING`, `KEYS`, `LAYOUT`, `FEEDBACK` | durations (ms), keys, positions and sizes in degrees, feedback colours |
+| `BONUS` | which phases count, and the per-block bonus tiers |
+| `SCREENING`, `COMPREHENSION` | which checks screen participants out, the screen-out payment, quiz attempts |
+| `TIMING`, `KEYS`, `LAYOUT`, `FEEDBACK` | durations (ms), the F/J keys, positions and sizes in degrees, feedback colours |
 | `CALIBRATION` | blind-spot repetitions, plausible ranges, the values assumed when a measurement fails, fit margin |
 | `BROWSER` | minimum window size; phones and tablets are excluded |
 | `PROLIFIC` | completion codes |
 | `DATA` | where data go |
 
-The instructions compute their examples (coins, session length) from these settings, so
+The instructions compute their examples (bonus amounts, session length) from these settings, so
 they stay correct when the design changes.
 
 ## Files
@@ -175,12 +202,12 @@ they stay correct when the design changes.
 |---|---|
 | `index.html` | loads jsPsych 8.3.0 and plugins (pinned versions), then `src/main.js` |
 | `src/config.js` | all settings (above) |
-| `src/design.js` | a participant's whole design from one seed: test type and version order, rules, fractals, round order, which key means YES. Pure functions; the same seed always gives the same design |
+| `src/design.js` | a participant's whole design from one seed: version, rules, fractals, round order. Pure functions; the same seed always gives the same design |
 | `src/calibration.js` | card + blind-spot calibration, pixels per degree, fit to the window |
-| `src/reward.js` | coins per round and coins → dollars: the one place the payout rule is computed |
-| `src/display.js` | HTML for every screen (machine and lever, symbols, bull's eye, feedback circles) in degrees, and the coin bar |
-| `src/task.js` | blocks: intro → rounds (wait → pull → response → feedback) → block summary; practice criterion |
-| `src/instructions.js` | consent, instructions, comprehension quiz (repeats until correct, up to 3 times) |
+| `src/bonus.js` | accuracy → bonus in dollars: the one place the bonus rule is computed |
+| `src/display.js` | HTML for every screen (symbols, bull's eye, feedback circles and word) in degrees |
+| `src/task.js` | blocks: intro → rounds (iti → response → feedback) → block summary; practice criterion |
+| `src/instructions.js` | consent, instructions, comprehension quiz (2 attempts, then screened out) |
 | `src/data.js` | Prolific IDs from the URL, tab-switch / full-screen tracking, file name, local download (online saving is the DataPipe extension, set up in `src/main.js`) |
 | `src/main.js` | puts it together: browser check → consent → full screen → calibration → instructions + quiz → blocks → final screen → save → Prolific |
 | `tools/bonus_payments.py` | Prolific bonus list from the data files (see below) |
@@ -194,21 +221,17 @@ One CSV per participant, one row per screen. Analyse the rows with `part == "res
 | Column | Meaning |
 |---|---|
 | `participant`, `prolific_pid`, `study_id`, `session_id` | Prolific IDs (`pilot` when run locally) |
-| `seed`, `task_version` | regenerate the exact design with `buildDesign(seed, {type: test_type, first: test_first})` |
-| `study_phase` | `pilot` or `main` (`STUDY.phase` when the data were collected) |
-| `test_type`, `test_first` | the participant's test type (I … XVI) and which version came first (A or B) |
-| `key_yes`, `key_no` | this participant's keys for YES (pair wins) and NO |
-| `block`, `phase`, `block_in_phase`, `rule`, `rule_type`, `size`, `coins_paid` | block information |
+| `seed`, `task_version` | regenerate the exact design with `buildDesign(seed, {version})` |
+| `version`, `sequence` | the participant's test version (`A` or `B`) and the test types in order (`VI-X-II`) |
+| `key_cat1`, `key_cat0` | the keys for category 1 and 0 (`f`, `j` for everyone) |
+| `block`, `phase`, `block_in_phase`, `rule`, `rule_type`, `size`, `counts_for_bonus` | block information |
 | `trial_in_block`, `rep` | round number in the block, and which pass through the pairs |
 | `compound`, `level_a`, `level_b` | which pair: `compound = size · a + b` |
 | `fractal_a`, `fractal_b` | fractal file numbers shown left (A) and right (B) |
-| `category`, `outcome`, `correct_key` | the right answer: 1 / `win` / `key_yes`, or 0 / `lose` / `key_no` |
-| `response`, `choice`, `rt` | key pressed (lowercase), the answer (1 = YES), and RT in ms from symbol onset (`null` if late) |
+| `category`, `correct_key` | the right answer: 1 / `f` or 0 / `j` |
+| `response`, `choice`, `rt` | key pressed (lowercase), the answer (1 = F, category 1), and RT in ms from symbol onset (`null` if late) |
 | `correct`, `timeout` | outcome |
-| `round_started_by`, `wait_ms` | `space` or `timeout` (started by itself after 3 s), and how long the wait screen lasted |
 | `recent_correct` | correct answers among the last 10 rounds (the practice criterion) |
-| `coins_delta`, `coins_block` | coins for this round, and the block total so far |
-| `coins_bonus_total`, `coins_practice_total` | paid and practice coin totals so far |
 | `blur_count`, `fullscreen_exit_count` | how often the participant left the tab/window or full screen so far (attention checks) |
 | `px_per_deg`, `layout_scale`, `window_width`, `window_height` | screen scale on this round (degrees actually shown = LAYOUT value × `layout_scale`) |
 | `time_elapsed` | ms since the start |
@@ -223,15 +246,16 @@ Other rows:
 | `calibration_summary` | the values used: `calibration_source` (measured / assumed_distance / assumed_card / assumed_both / skipped), `px_per_mm`, `view_dist_mm`, `px_per_deg`, `layout_scale` |
 | `comprehension` | quiz answers, `comprehension_passed`, `comprehension_attempt` |
 | `design` | the full design as JSON: rules, fractals |
-| `block_summary` | `block_rounds`, `block_pcorrect`, `block_n_late`, `block_coins`, coins so far, and for practice `practice_criterion_met` |
-| `final` | `test_pcorrect`, **`bonus_coins`, `bonus_usd`**, `practice_coins`, the complete tab-switch / full-screen log (`interaction_log`), `finished_at` |
-| `wait`, `pull`, `feedback` | timing checks (`wait` also has `started_by`) |
+| `block_summary` | `block_rounds`, `block_pcorrect`, `block_n_late`, test accuracy so far; test blocks `block_bonus_usd`, `bonus_so_far_usd`; practice `practice_criterion_met` |
+| `screen_check`, `comprehension_check` | the screening checks; a screened-out participant has `screened_out` (`quiz`, `practice_type_I`, `practice_timeouts`) on every row |
+| `final` | `test_pcorrect`, `test_correct`, `test_rounds`, `block_bonuses_usd`, **`bonus_usd`**, the complete tab-switch / full-screen log (`interaction_log`), `finished_at` |
+| `iti`, `feedback` | timing checks |
 
 Possible exclusion criteria to decide before data collection:
 
-- `comprehension_passed == false`
-- `practice_criterion_met == false`
-- many timeouts, or most rounds `started_by == timeout`
+- `screened_out` set (already handled on Prolific)
+- `practice_criterion_met == false` for the XOR practice
+- many timeouts
 - high `blur_count`
 - `low_refresh`
 - `calibration_source` other than `measured`, or a small `layout_scale`
@@ -270,18 +294,19 @@ Prolific pays bonuses separately from the base pay, after you approve submission
    python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4
    ```
 
-   It recomputes every bonus from the paid rounds, checks it against the `bonus_usd` the
+   It recomputes every bonus from the test rounds' accuracy, checks it against the `bonus_usd` the
    experiment showed and saved, and writes two files:
    - `bonus_payments.txt` (`PROLIFIC_PID,amount` per line)
    - `bonus_report.csv` (every file with its checks)
 
-   Pilots (no Prolific ID) are skipped. Duplicate IDs are paid once and flagged.
+   Pilots (no Prolific ID) and files from the slot-machine pilot builds (task_version 3.x) are
+   skipped. Screened-out sessions get no bonus (Prolific pays their fixed screen-out reward).
+   Only finished test blocks earn a bonus. Duplicate IDs are paid once and flagged.
    Unfinished sessions are left out unless you pass `--include-incomplete`.
 3. On Prolific, open the study → Submissions → **Bulk bonus payments**, and paste the
    contents of `bonus_payments.txt`.
 
-If you change `REWARD` in `src/config.js`, pass the same conversion to the script
-(`--coins-per-dollar`, `--min-bonus`, `--max-bonus`).
+If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to match.
 
 ## Going live on Prolific: checklist
 
@@ -291,36 +316,60 @@ If you change `REWARD` in `src/config.js`, pass the same conversion to the scrip
 2. **Prolific study URL.** Your hosted address followed by
    `?PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}`.
    Prolific fills in the IDs.
-3. **Completion code.** Copy it from Prolific into `PROLIFIC.completionCode`; participants
-   are redirected with it automatically after saving.
-4. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: about
-   40–45 minutes with the default design.
-5. **Study description.** Say that participants need a **bank or ID card** for the screen
-   setup, and mention the bonus ("up to ~$7.50 based on performance"); budget about $4–6 of bonus per participant.
-6. **Consent.** Check that the text in `src/instructions.js` matches the IRB-approved
+3. **Completion codes.** Copy each study's code from its "Completion paths" into
+   `PROLIFIC.completionCodes` (`A` for the study whose URL has `&version=A`, `B` for the
+   other); participants are redirected with their study's code automatically after saving.
+   The URL's `version` must match the study, or the code won't be accepted.
+4. **Custom screening.** In each study, under Data collection → Custom screening, choose
+   "Yes":
+   - screen-out reward $1.00, matching `SCREENING.payUsd`;
+   - screen-out slots about half the places, e.g. 5 for 10;
+   - copy its screen-out code into `PROLIFIC.screenOutCodes`, A and B.
+5. **Device.** Restrict to desktop (laptop / computer), and set the estimated time: about
+   40 minutes with the default design.
+6. **Study description.** Say that participants need a **bank or ID card** for the screen
+   setup. Mention the bonus ("up to $6, per block") and that the study may end early after
+   the instructions or the first practice, paid $1.00. Budget up to $6 of bonus per
+   participant.
+7. **Consent.** Check that the text in `src/instructions.js` matches the IRB-approved
    version, including the performance bonus.
-7. **Pilot first.** Check it yourself with `?debug=1`, then run the real study once in full, then on Prolific with
+8. **Two studies for the two versions.** For exactly half A and half B, publish the study
+   twice, with `&version=A` and `&version=B` added to the URL, and exclude each other's
+   participants.
+9. **Pilot first.** Check it yourself with `?debug=1`, then run the real study once in full, then on Prolific with
    a handful of participants, checking each CSV and a test bonus payment before launching
    the rest.
 
+## History
+
+- **Version 1.0 (current, the first study): F/J categorisation.**
+  - The slot machine, coins and coin bar are gone. Participants press F for one category
+    and J for the other, with the same keys for everyone.
+  - Rounds run automatically: 1 s fixation, then the pair with free viewing (no
+    fixation while the symbols are on), then feedback.
+  - The test is a fixed sequence, VI → X → II, in an A or a B version.
+  - The bonus is paid per test block in tiers ($0.50 / $1.00 / $2.00, up to $6).
+  - Screening: the quiz has 2 attempts. A failed quiz, a failed type-I practice or too
+    many practice timeouts screen out with $1.00.
+- **Pilot builds 3.0–3.2 (task_version 3.x): slot machine.** The participant pulled a lever (SPACE) and predicted
+  win or lose (YES key randomised per participant). Coins: +10 correct, −5 wrong or late,
+  500 coins = $1. Each participant got one test type in 3 blocks, with an A → B switch.
+  - 3.1: equidistant fractal groups.
+  - 3.2: DataPipe saving.
+
 ## Changes from the PsychoPy version
 
-- **Slot machines.** The Friend-or-Enemy flags became slot machines: win/lose predictions,
-  coins (+10 correct, −5 wrong or late) and a test-block bonus.
+- **Categorisation.** The Friend-or-Enemy flags became an F/J categorisation of symbol pairs
+  with a performance bonus (a slot machine with coins in versions 3.x).
 - **Two symbols.** Two symbols (left / right) instead of three in a triangle. A 2×2 practice
-  ends on a performance criterion, followed by a 4×4 test with one type per participant
-  and an A → B (or B → A) switch in block 3.
-- **Self-paced rounds.** Each round starts on `SPACE` (a lever pull), or by itself after 3 s.
+  ends on a performance criterion, followed by three 4×4 test blocks.
 - **Sizes in degrees.** Instead of fractions of the screen height: 4° symbols at 6°, as in
   the EEG task, with a per-participant screen calibration.
-- **Feedback without text.** Green or red circles around the symbols, with the fixation
-  still on, replace PsychoPy's text over the symbols. A coin bar at the top of the screen
-  replaces the trial counter and running score.
-- **Fixation.** The MATLAB task's bull's eye replaces the cross and is shown throughout; the
-  PsychoPy file had its cross disabled, although the instructions ask participants to look
-  at it.
-- **Keys.** `F` / `J` (either case), with YES/NO randomised per participant; PsychoPy used
-  `E` / `F` with a fixed mapping.
+- **Feedback.** Green or red circles around the symbols, and a short word in the centre.
+- **Fixation.** The MATLAB task's bull's eye replaces the cross, shown between rounds only
+  (shown throughout in the slot-machine pilot builds). The PsychoPy file had its cross disabled,
+  although the instructions asked participants to look at it.
+- **Keys.** `F` / `J` (either case); PsychoPy used `E` / `F`.
 - **Text instead of slides.** Instructions are HTML text rather than Keynote slides, and a
   comprehension quiz was added. The PsychoPy file also listed two instruction slides that
   don't exist (`instruction.008/.009`).

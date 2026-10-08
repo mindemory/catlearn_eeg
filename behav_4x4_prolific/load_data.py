@@ -4,7 +4,9 @@ Each participant's CSV (one row per screen, see catlearn_4x4_prolific/README.md)
   rounds    one row per round (part == 'response'), with the signal-detection outcome
   sessions  one row per participant: design, calibration, comprehension, bonus
 
-Signal detection: a "win" pair is the signal and YES is the positive answer.
+Signal detection: a category-1 pair is the signal and answering category 1 is the
+positive answer. In task_version 1.x (the F/J study) that is an F pair and an F press; in
+the slot-machine pilot builds (3.x) a "win" pair and a YES press.
   hit  = win pair, answered YES         miss = win pair, answered NO or late
   fa   = lose pair, answered YES        cr   = lose pair, answered NO or late
 Late rounds never contain a YES, so they count as misses (win pairs) or correct
@@ -45,7 +47,8 @@ def _bool(s):
 def load_file(path):
     df = pd.read_csv(path, low_memory=False)
     pid = participant_id(df, path)
-    r = df[df["part"] == "response"][ROUND_COLUMNS].copy()
+    # columns a task version doesn't record (e.g. coins in the F/J study) are left empty
+    r = df[df["part"] == "response"].reindex(columns=ROUND_COLUMNS).copy()
     for c in ("correct", "timeout"):
         r[c] = _bool(r[c])
     for c in ("block", "block_in_phase", "size", "trial_in_block", "rep", "compound", "level_a", "level_b",
@@ -70,16 +73,18 @@ def load_file(path):
         "debug": str(first.get("debug")).lower() == "true",
         "task_version": first.get("task_version"),
         "seed": first.get("seed"),
-        "test_type": first.get("test_type"),
+        "test_type": first.get("test_type"),             # versions 3.x
         "test_first": first.get("test_first"),
         "key_yes": first.get("key_yes"),
+        "version": first.get("version"),                 # F/J study: A or B, and the test types in order
+        "sequence": first.get("sequence"),
         "calibration_source": cal["calibration_source"].iloc[-1] if len(cal) else None,
         "view_dist_mm": cal["view_dist_mm"].iloc[-1] if len(cal) else None,
         "px_per_deg": cal["px_per_deg"].iloc[-1] if len(cal) else None,
         "comprehension_passed": bool(_bool(quiz["comprehension_passed"]).iloc[-1]) if len(quiz) else None,
         "comprehension_attempts": len(quiz),
         "completed": len(final) > 0,
-        "bonus_coins": final["bonus_coins"].iloc[0] if len(final) else None,
+        "bonus_coins": final["bonus_coins"].iloc[0] if len(final) and "bonus_coins" in final else None,
         "bonus_usd": final["bonus_usd"].iloc[0] if len(final) else None,
         "practice_criterion_met": ";".join(summaries.loc[summaries["phase"] == "practice", "practice_criterion_met"]
                                            .astype(str).tolist()),

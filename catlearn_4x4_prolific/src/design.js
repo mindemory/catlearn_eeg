@@ -1,9 +1,9 @@
-// Builds one participant's full design from a seed: test type and version order, the rule
-// of every block, its fractals and the trial order, and which key means YES. Pure functions,
+// Builds one participant's full design from a seed: the test sequence version (A or B), the
+// rule of every block, its fractals and the trial order. Pure functions,
 // no jsPsych, so the same seed always gives the same design (and it can be checked in a
 // console).
 
-import { BLOCKS, KEYS, RULES, STIMULI, STUDY, TEST_TYPES } from './config.js';
+import { BLOCKS, KEYS, RULES, SEQUENCES, STIMULI } from './config.js';
 import { FRACTAL_GROUPS } from '../stimuli/fractal_groups/groups.js';
 
 // Small seeded PRNG (mulberry32): returns floats in [0, 1)
@@ -35,10 +35,10 @@ export function newSeed() {
 /**
  * The participant's design.
  * @param {number} seed
- * @param {{debug?: boolean, type?: string, first?: 'A'|'B'}} opts  debug: 1 pass per block
- *   (3 for practice, so the criterion can still be reached); type / first: fix the test type
- *   and which version comes first (otherwise random, from STUDY.types[STUDY.phase])
- * @returns {{seed, keys: {yes, no}, testType, testFirst: 'A'|'B', blocks: Array, example}}
+ * @param {{debug?: boolean, version?: 'A'|'B'}} opts  debug: 1 pass per block (3 for
+ *   practice, so the criterion can still be reached); version: fix the test sequence
+ *   (otherwise random)
+ * @returns {{seed, keys: {cat1, cat0}, version, sequence, blocks: Array, example}}
  *   each block: {block, phase, blockInPhase, nInPhase, rule, ruleType, size, labels, reps,
  *   criterion, fractals: {A: [...size], B: [...size]}, trials: [...]}; example: two
  *   fractals not shown in any block (for the instructions)
@@ -46,18 +46,14 @@ export function newSeed() {
 export function buildDesign(seed, opts = {}) {
   const rng = makeRng(seed);
   // drawn even when fixed by opts, so the rest of the design is the same for a given seed
-  const drawnType = pick(STUDY.types[STUDY.phase], rng);
-  const drawnFirst = rng() < 0.5 ? 'A' : 'B';
-  const testType = opts.type ?? drawnType;
-  const testFirst = opts.first ?? drawnFirst;
-  if (!TEST_TYPES[testType]) throw new Error(`unknown test type ${testType}`);
-  if (!['A', 'B'].includes(testFirst)) throw new Error(`first must be A or B, not ${testFirst}`);
-  const [versionA, versionB] = TEST_TYPES[testType];
-  const testRules = testFirst === 'A' ? { first: versionA, second: versionB } : { first: versionB, second: versionA };
+  const drawnVersion = pick(Object.keys(SEQUENCES), rng);
+  const version = opts.version ?? drawnVersion;
+  if (!SEQUENCES[version]) throw new Error(`unknown version ${version} (use ${Object.keys(SEQUENCES).join(', ')})`);
+  const sequence = SEQUENCES[version];
 
   const resolveRule = (rule) => {
     if (Array.isArray(rule)) return pick(rule, rng);
-    if (rule.startsWith('test:')) return testRules[rule.slice(5)];
+    if (rule.startsWith('seq:')) return sequence[Number(rule.slice(4)) - 1];
     return rule;
   };
   const rules = BLOCKS.map((spec) => resolveRule(spec.rule));
@@ -101,13 +97,13 @@ export function buildDesign(seed, opts = {}) {
     };
   });
 
-  const yes = pick(KEYS.pair, rng);
-  const keys = { yes, no: KEYS.pair.find((k) => k !== yes) };
+  const keys = { cat1: KEYS.cat1, cat0: KEYS.cat0 };
   // Two fractals this participant never sees in a block, for the instruction examples
   const used = new Set(blocks.flatMap((b) => Object.values(b.fractals).flat()));
   const example = shuffle(Object.values(FRACTAL_GROUPS).flat(), rng)
     .find((g) => g.every((f) => !used.has(f))).slice(0, 2);
-  return { seed, keys, testType, testFirst, debug: Boolean(opts.debug), blocks, example };
+  return { seed, keys, version, sequence: sequence.map((r) => RULES[r].type).join('-'), debug: Boolean(opts.debug),
+           blocks, example };
 }
 
 // Image files the design will show, examples included (for preloading)

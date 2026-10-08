@@ -7,18 +7,18 @@
 // download the CSV instead.
 
 import { calibrationTimeline } from './calibration.js';
-import { BROWSER, CONTACT, DATA, PROLIFIC } from './config.js';
+import { BROWSER, CONTACT, DATA, PROLIFIC, SCREENING } from './config.js';
 import { completionUrl, dataFilename, isProlific, onInteraction, saveLocal, sessionProperties, urlParams } from './data.js';
 import { buildDesign, designImages, newSeed } from './design.js';
 import { consentTrial, instructionsWithCheck } from './instructions.js';
-import { bonusDollars, formatCoins, formatDollars } from './reward.js';
+import { formatDollars, totalBonus } from './bonus.js';
 import { taskTimeline } from './task.js';
 
 const params = urlParams();
 const seed = params.seed ?? newSeed();
-const design = buildDesign(seed, { debug: params.debug, type: params.type, first: params.first });
+const design = buildDesign(seed, { debug: params.debug, version: params.version });
 
-const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false };
+const saved = { ok: false, mode: null, error: null, backupFile: null, declined: false, screenedOut: null };
 const filename = dataFilename();                 // no participant label: prefix, start time, random tag
 const online = DATA.save === 'datapipe' && !params.simulate && params.save !== 'local';
 
@@ -51,9 +51,11 @@ const jsPsych = initJsPsych({
   extensions: online ? [pipe] : [],
 });
 jsPsych.data.addProperties({ ...sessionProperties(params, seed), session_file: filename,
-                             key_yes: design.keys.yes, key_no: design.keys.no,
-                             test_type: design.testType, test_first: design.testFirst });
-window.catlearn = { jsPsych, design, params };   // for inspection in the browser console
+                             key_cat1: design.keys.cat1, key_cat0: design.keys.cat0,
+                             version: design.version, sequence: design.sequence,
+                             // 'url' on Prolific: the study's URL fixes the version, so its completion code matches
+                             version_source: params.version ? 'url' : 'random' });
+window.catlearn = { jsPsych, design, params, screenOut: (reason) => screenOut(reason) };   // for inspection and testing in the browser console
 
 const browserCheck = {
   type: jsPsychBrowserCheck,
@@ -73,12 +75,13 @@ const preload = {
 
 const declined = () => {
   saved.declined = true;
-  const go = isProlific(params) && !PROLIFIC.noConsentCode.startsWith('REPLACE');
+  const noConsentCode = PROLIFIC.noConsentCodes[design.version] ?? 'REPLACE';
+  const go = isProlific(params) && !noConsentCode.startsWith('REPLACE');
   jsPsych.abortExperiment(
     '<p>You did not consent, so the study ends here. Thank you for your time.</p>'
     + (go ? '<p>Returning you to Prolific...</p>' : '<p>Please return the study on Prolific.</p>'),
   );
-  if (go) setTimeout(() => { window.location.href = completionUrl(PROLIFIC.noConsentCode); }, 3000);
+  if (go) setTimeout(() => { window.location.href = completionUrl(noConsentCode); }, 3000);
 };
 
 const fullscreenOn = {
@@ -89,10 +92,29 @@ const fullscreenOn = {
   data: { part: 'fullscreen_on' },
 };
 
+// Screening (SCREENING): a participant who fails a check leaves now, with the fixed screen-out
+// payment, through Prolific's custom screening path. Their data are saved as usual (online:
+// the DataPipe extension uploads when the experiment ends; locally: downloaded here).
+const screening = params.screen ?? !(params.debug || params.simulate);
+
+function screenOut(reason) {
+  if (saved.screenedOut) return;
+  saved.screenedOut = reason;
+  jsPsych.data.addProperties({ screened_out: reason });
+  if (!online) {
+    saveLocal(jsPsych, filename);
+    Object.assign(saved, { ok: true, mode: 'local' });
+  }
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  // no end message: jsPsych would write it after on_finish, over showEnd()'s screen-out page
+  jsPsych.getDisplayElement().innerHTML = '<div class="page center"><p>Saving your answers, please do not close this window...</p></div>';
+  jsPsych.abortExperiment();
+}
+
 // Simulated runs cannot do the card / blind-spot measurement, so they use the assumed values
 const calibration = calibrationTimeline({ skip: Boolean(params.simulate) || params.skipCalibration });
 
-const task = taskTimeline(design);
+const task = taskTimeline(design, { screening, onScreenOut: screenOut });
 
 const designRow = {
   type: jsPsychCallFunction,
@@ -106,11 +128,10 @@ const designRow = {
 const finale = {
   type: jsPsychHtmlKeyboardResponse,
   stimulus: () => {
-    const { totalPCorrect: p, bonusCoins } = task.state;
+    const { totalPCorrect: p } = task.state;
     return '<div class="page preline center">'
       + (p === null ? '' : `Proportion correct in the test blocks = ${p.toFixed(2)}\n\n`)
-      + `You won <b>${formatCoins(bonusCoins)} coins</b> in the test blocks.\n`
-      + `They become your bonus of ${formatDollars(bonusDollars(bonusCoins))},\n`
+      + `Your performance bonus: <b>${formatDollars(totalBonus(task.state.blockBonuses))}</b>,\n`
       + 'paid through Prolific after we review your submission.\n\n'
       + 'Thanks for your participation!\n\nPress the space bar to finish and save your answers.</div>';
   },
@@ -118,9 +139,10 @@ const finale = {
   data: { part: 'final' },
   on_finish: (data) => {
     data.test_pcorrect = task.state.totalPCorrect;
-    data.bonus_coins = task.state.bonusCoins;
-    data.bonus_usd = bonusDollars(task.state.bonusCoins);
-    data.practice_coins = task.state.practiceCoins;
+    data.test_correct = task.state.testCorrect;
+    data.test_rounds = task.state.testTrials;
+    data.block_bonuses_usd = JSON.stringify(task.state.blockBonuses.map((x) => Math.round(x * 100) / 100));
+    data.bonus_usd = totalBonus(task.state.blockBonuses);
     data.interaction_log = JSON.stringify(jsPsych.data.getInteractionData().values());
     data.finished_at = new Date().toISOString();
   },
@@ -148,9 +170,21 @@ function showEnd() {
         + `<p>Please send that file through Prolific or to ${CONTACT.email}, so we can pay you. Thank you!</p>`
       : '<p>Saving failed. Please contact the researcher on Prolific and do not close this window.</p>';
     message += `<p class="small">${saved.error}</p>`;
+  } else if (saved.screenedOut) {
+    const code = PROLIFIC.screenOutCodes[design.version] ?? 'REPLACE';
+    message = '<p>Thank you for your time. Based on your answers so far, this study is not a good match for you, '
+      + `so it ends here. You will receive ${formatDollars(SCREENING.payUsd)} for taking part.</p>`;
+    if (isProlific(params) && !code.startsWith('REPLACE')) {
+      message += '<p>Returning you to Prolific...</p>';
+      setTimeout(() => { window.location.href = completionUrl(code); }, 3000);
+    } else if (isProlific(params)) {
+      message += `<p>Please return to Prolific and contact the researcher (${CONTACT.email}).</p>`;
+    } else {
+      message += `<p class="small">Pilot: screened out (${saved.screenedOut}). Data saved (${saved.mode}).</p>`;
+    }
   } else if (isProlific(params)) {
     message = '<p>Your answers are saved. Returning you to Prolific...</p>';
-    setTimeout(() => { window.location.href = completionUrl(PROLIFIC.completionCode); }, 2000);
+    setTimeout(() => { window.location.href = completionUrl(PROLIFIC.completionCodes[design.version]); }, 2000);
   } else {
     message = `<p>Pilot finished. Data saved (${saved.mode}).</p>`;
   }
@@ -158,7 +192,8 @@ function showEnd() {
 }
 
 const consent = params.skipIntro ? [] : [consentTrial(declined)];
-const instructions = params.skipIntro ? [] : [instructionsWithCheck(design, design.example)];
+const instructions = params.skipIntro ? [] : [instructionsWithCheck(design, design.example,
+  { onFail: screening && SCREENING.quiz ? () => screenOut('quiz') : null })];
 const timeline = [browserCheck, preload, ...consent, fullscreenOn, calibration, ...instructions, designRow, task,
                   finale, fullscreenOff, ...(online ? [] : [save])];
 

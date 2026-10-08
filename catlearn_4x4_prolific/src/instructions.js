@@ -1,9 +1,9 @@
 // Consent, instructions and the comprehension check. Text only here; the trial screens
 // are in display.js and the task timeline in task.js.
 
-import { COMPREHENSION, CONTACT, FEEDBACK, PRACTICE_CRITERION, REWARD, TIMING } from './config.js';
-import { coinBar, exampleMachine } from './display.js';
-import { formatCoins } from './reward.js';
+import { BONUS, COMPREHENSION, CONTACT, FEEDBACK, PRACTICE_CRITERION, SCREENING, TIMING } from './config.js';
+import { exampleScreen } from './display.js';
+import { formatDollars, maxBonus } from './bonus.js';
 
 const key = (k) => `<span class="key">${k.toUpperCase()}</span>`;
 const page = (html) => `<div class="page">${html}</div>`;
@@ -42,68 +42,70 @@ export function consentTrial(onDecline) {
  * Instruction pages, then a short quiz; repeated (up to COMPREHENSION.maxAttempts) until
  * all answers are right.
  * @param {object} design       from buildDesign
- * @param {number[]} example    two fractal numbers for the example machine
+ * @param {number[]} example    two fractal numbers for the example screens
+ * @param {{onFail?: function}} opts  onFail: called if every attempt fails (screening);
+ *   without it the participant continues, flagged by comprehension_passed = false
  */
-export function instructionsWithCheck(design, example) {
+export function instructionsWithCheck(design, example, { onFail = null } = {}) {
   const practice = design.blocks.filter((b) => b.phase === 'practice');
   const test = design.blocks.filter((b) => b.phase === 'test');
   const { window: WINDOW, minCorrect: MIN_CORRECT } = PRACTICE_CRITERION;
-  // Duration: test rounds plus ~30 practice rounds per practice block, ~1 s of waiting and
-  // ~1.2 s to answer per round, plus ~8 min of setup and instructions
+  // Duration: test rounds plus ~30 practice rounds per practice block, ~1.2 s to answer per
+  // round, plus ~8 min of setup and instructions
   const nTest = test.reduce((n, b) => n + b.trials.length, 0);
-  const roundMs = 1000 + TIMING.pull + 1200 + TIMING.feedback;
+  const roundMs = TIMING.iti + 1200 + TIMING.feedback;
   const minutes = Math.round(((nTest + 30 * practice.length) * roundMs) / 60000 + 8);
-  // Coin examples from the actual design and payoffs
-  const nPaid = design.blocks.filter((b) => REWARD.bonusPhases.includes(b.phase)).reduce((n, b) => n + b.trials.length, 0);
-  const coinsAt = (p) => Math.round(nPaid * (p * REWARD.correct + (1 - p) * REWARD.wrong));
-  const Y = design.keys.yes.toUpperCase();
-  const N = design.keys.no.toUpperCase();
-  const wrongCost = Math.abs(REWARD.wrong);
-  const waitS = TIMING.wait / 1000;
+  const F = design.keys.cat1.toUpperCase();
+  const J = design.keys.cat0.toUpperCase();
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const tierRows = BONUS.tiers.map(([min, usd], i) => {
+    const next = BONUS.tiers[i + 1];
+    const range = next ? `${pct(min)} to ${pct(next[0])}` : `${pct(min)} or more`;
+    return `<tr><td>${range}</td><td>${formatDollars(Math.round(usd * 100) / 100)}</td></tr>`;
+  }).join('');
 
   const pages = [
-    page(`<h2>Welcome to the slot machines!</h2>
-      <p class="center">Each machine shows two symbols, one on each side. Some pairs of symbols <b>win</b>,
-      the others <b>lose</b>. Your job is to learn which is which.</p>
-      ${exampleMachine(example, { height: 240 })}`),
+    page(`<h2>Welcome!</h2>
+      <p class="center">In each round, two symbols appear, one on each side of the centre of the screen.
+      Every pair of symbols belongs to one of two groups: press ${key(F)} for one group and ${key(J)} for
+      the other. At first you will have to guess. After every answer you see whether you were right, so you
+      can learn which pairs go with ${key(F)} and which go with ${key(J)}.</p>
+      ${exampleScreen(example, { height: 170 })}`),
     page(`<h2>Each round</h2>
-      <p class="center">Press ${key('space')} to pull the lever (if you wait ${waitS} seconds, the machine starts
-      by itself). Two symbols appear. Answer: <b>will this pair win?</b><br>
-      Press ${key(Y)} for <b>YES</b> or ${key(N)} for <b>NO</b>, within ${TIMING.response / 1000} seconds.</p>
+      <p class="center">Each round starts with a small target in the centre: look at it. Then the two symbols
+      appear: look at them as much as you like, and press ${key(F)} or ${key(J)} within
+      ${TIMING.response / 1000} seconds.</p>
       <div class="example-row">
-        ${exampleMachine(example, { height: 190, symbols: false, hint: 'press SPACE to play' })}
-        ${exampleMachine(example, { height: 190 })}
+        ${exampleScreen(example, { height: 140, symbols: false })}
+        ${exampleScreen(example, { height: 140 })}
       </div>`),
-    page(`<h2>See the payout</h2>
-      <p class="center">Circles then appear around the symbols: <b style="color: ${FEEDBACK.correct}">green</b>
-      if you were right (<b>+${REWARD.correct} coins</b>), <b style="color: ${FEEDBACK.wrong}">red</b> if you were
-      wrong or too slow (<b>&minus;${wrongCost} coins</b>).</p>
+    page(`<h2>Feedback</h2>
+      <p class="center">After you answer, circles appear around the symbols: <b style="color: ${FEEDBACK.correct}">green</b>
+      if you were right, <b style="color: ${FEEDBACK.wrong}">red</b> if you were wrong or too slow.</p>
       <div class="example-row">
-        ${exampleMachine(example, { height: 190, outcome: FEEDBACK.correct })}
-        ${exampleMachine(example, { height: 190, outcome: FEEDBACK.wrong })}
+        ${exampleScreen(example, { height: 140, outcome: FEEDBACK.correct })}
+        ${exampleScreen(example, { height: 140, outcome: FEEDBACK.wrong })}
       </div>`),
-    page(`<h2>Your coins</h2>
-      <p class="center">A bar at the top of the screen shows your coins: it fills as you win and shrinks as
-      you lose.</p>
-      <div class="example-bar">${coinBar({ coins: coinsAt(0.8) / 2, max: nPaid * REWARD.correct, paid: true,
-                                            label: `${formatCoins(Math.round(coinsAt(0.8) / 2))} coins` })}</div>
-      <p class="center">Coins you win in the <b>test</b> blocks are paid to you as a bonus on top of your
-      base payment (${formatCoins(REWARD.coinsPerDollar)} coins = $1). Practice coins are not paid.
-      For example, predicting 80% of the test rounds correctly earns about ${formatCoins(coinsAt(0.8))} coins;
-      a perfect score earns ${formatCoins(coinsAt(1))}.</p>`),
-    page(`<h2>Keep your eyes on the centre</h2>
-      <p class="center">Please always keep your eyes on the small black-and-white target in the middle of the
-      screen, even when the symbols appear.</p>
-      ${exampleMachine(example, { height: 240 })}`),
+    page(`<h2>Your performance bonus</h2>
+      <p class="center">On top of your base payment, you can earn a <b>bonus of up to ${formatDollars(maxBonus(test.length))}</b>,
+      paid through Prolific. Each of the ${test.length} <b>test</b> blocks earns its own bonus, from the share of
+      your answers in that block that are right:</p>
+      <table class="tiers"><tr><th>Correct in the block</th><th>Bonus for the block</th></tr>
+        <tr><td>below ${pct(BONUS.tiers[0][0])}</td><td>$0.00</td></tr>${tierRows}</table>
+      <p class="center">Answers that are too slow count as wrong. Practice answers do not count, and the bonus
+      never reduces your base payment. You see each block's bonus at the break after it.</p>`),
     page(`<h2>Procedure</h2>
       <ul>
-      <li>First, ${practice.length} practice machine${practice.length > 1 ? 's' : ''}: each side shows one of
+      <li>First, ${practice.length} practice block${practice.length > 1 ? 's' : ''}: each side shows one of
         ${practice[0]?.size ?? 2} symbols. Each ends once ${MIN_CORRECT} of your last ${WINDOW} answers are correct.</li>
-      <li>Then ${test.length} test machines: each side shows one of ${test[0]?.size ?? 4} symbols,
+      <li>Then ${test.length} test blocks: each side shows one of ${test[0]?.size ?? 4} symbols,
         ${test[0]?.trials.length ?? 0} rounds each.</li>
-      <li>Every machine has <b>new</b> symbols, so you learn its winning pairs from scratch.</li>
-      <li>You can rest between machines.</li>
+      <li>Every block has <b>new</b> symbols, so you learn which pairs go with ${key(F)} and ${key(J)} from scratch.</li>
+      <li>You can rest between blocks.</li>
       <li>Expected duration: about ${minutes} minutes.</li></ul>
+      <p class="center small">If the quick questions below are answered wrongly twice, or the first practice
+      shows that the task is not a good match (for example, many answers too slow), the study ends early and you
+      receive ${formatDollars(SCREENING.payUsd)} for your time.</p>
       <p class="center">Next, a few quick questions to check the instructions.</p>`),
   ];
 
@@ -118,11 +120,10 @@ export function instructionsWithCheck(design, example) {
   };
 
   const answers = {
-    yes_key: Y,
-    start_round: `Press SPACE (or wait ${waitS} seconds)`,
-    wrong_cost: `You lose ${wrongCost} coins`,
-    paid_coins: 'Coins from the test blocks',
-    look_where: 'At the target in the middle',
+    what_to_do: `Press ${F} or ${J}, depending on the pair`,
+    feedback: 'Green circles: right; red circles: wrong or too slow',
+    bonus: 'Each test block pays more the more of its answers I get right',
+    look_where: 'At the target in the middle',   // between rounds
   };
   // attempts / passed are updated by the quiz itself, so the retry screen and the loop see
   // the current attempt
@@ -132,16 +133,14 @@ export function instructionsWithCheck(design, example) {
     type: jsPsychSurveyMultiChoice,
     preamble: '<h3>Quick check</h3>',
     questions: [
-      { name: 'yes_key', prompt: 'Which key do you press if you think the pair <b>will win</b>?',
-        options: ['F', 'J'], required: true },
-      { name: 'start_round', prompt: 'How does each round start?',
-        options: [`Press SPACE (or wait ${waitS} seconds)`, 'Press F or J'], required: true },
-      { name: 'wrong_cost', prompt: 'What happens when your prediction is wrong?',
-        options: [`You lose ${wrongCost} coins`, 'Nothing happens', `You win ${REWARD.correct} coins`], required: true },
-      { name: 'paid_coins', prompt: 'Which coins are paid to you as a bonus?',
-        options: ['Coins from the test blocks', 'Coins from the practice blocks', 'No coins are paid'], required: true },
-      { name: 'look_where', prompt: 'Where should you keep your eyes?',
-        options: ['At the target in the middle', 'At whichever symbol looks most important'], required: true },
+      { name: 'what_to_do', prompt: 'What do you do when the two symbols appear?',
+        options: [answers.what_to_do, 'Press SPACE', 'Nothing, just look at them'], required: true },
+      { name: 'feedback', prompt: 'How do you know whether your answer was right?',
+        options: [answers.feedback, 'There is no feedback', 'The symbols disappear when I am right'], required: true },
+      { name: 'bonus', prompt: 'How is your performance bonus earned?',
+        options: [answers.bonus, 'Everyone gets the same bonus', 'Only the practice answers count'], required: true },
+      { name: 'look_where', prompt: 'Where should you look <b>between</b> rounds, before the symbols appear?',
+        options: [answers.look_where, 'At the left edge of the screen'], required: true },
     ],
     data: { part: 'comprehension' },
     on_finish: (data) => {
@@ -155,17 +154,24 @@ export function instructionsWithCheck(design, example) {
   const retry = {
     timeline: [{
       type: jsPsychHtmlButtonResponse,
-      stimulus: page('<p class="center">Some answers were not right. Please read the instructions again.</p>'),
+      stimulus: () => page('<p class="center">Some answers were not right. Please read the instructions again.'
+        + (onFail && attempts === COMPREHENSION.maxAttempts - 1 ? '<br>This is your last try.' : '') + '</p>'),
       choices: ['Show the instructions again'],
       data: { part: 'comprehension_retry' },
     }],
     conditional_function: () => !passed && attempts < COMPREHENSION.maxAttempts,
   };
 
-  // After maxAttempts failures the participant continues anyway; comprehension_passed = false
-  // in the data flags them for exclusion.
-  return {
+  // After maxAttempts failures: screened out (onFail), or without screening the participant
+  // continues anyway and comprehension_passed = false in the data flags them for exclusion.
+  const loop = {
     timeline: [instructions, quiz, retry],
     loop_function: () => !passed && attempts < COMPREHENSION.maxAttempts,
   };
+  const failed = {
+    type: jsPsychCallFunction,
+    func: () => { if (!passed && onFail) onFail(); },
+    data: { part: 'comprehension_check' },
+  };
+  return { timeline: [loop, failed] };
 }

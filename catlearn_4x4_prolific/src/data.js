@@ -1,6 +1,6 @@
 // Participant IDs, attention-loss tracking and saving.
 
-import { DATA, PROLIFIC, STUDY, VERSION } from './config.js';
+import { DATA, PROLIFIC, VERSION } from './config.js';
 
 // ---------------------------------------------------------------- URL / Prolific
 export function urlParams() {
@@ -14,9 +14,11 @@ export function urlParams() {
     simulate: q.has('simulate') ? (q.get('simulate') === 'visual' ? 'visual' : 'data-only') : null,
     seed: q.has('seed') ? parseInt(q.get('seed'), 10) : null,
     save: q.get('save') === 'local' ? 'local' : null,   // ?save=local: download instead of uploading
-    // fix the test type (e.g. ?type=XV) and/or which version comes first (?first=A or B)
-    type: q.get('type') || null,
-    first: q.get('first') ? q.get('first').toUpperCase() : null,
+    // screening (SCREENING): ?screen=1 forces it on, ?screen=0 off (default: on, except in debug
+    // and simulated runs)
+    screen: q.get('screen') === '1' ? true : (q.get('screen') === '0' ? false : null),
+    // fix the test sequence version (?version=A or B)
+    version: q.get('version') ? q.get('version').toUpperCase() : null,
     skipIntro: (q.get('skip') || '').split(',').includes('intro'),
     skipCalibration: (q.get('skip') || '').split(',').includes('calibration'),
   };
@@ -45,7 +47,6 @@ export function sessionProperties(params, seed) {
     session_id: params.sessionId,
     seed,
     task_version: VERSION,
-    study_phase: STUDY.phase,
     debug: params.debug,
     simulated: Boolean(params.simulate),
     user_agent: navigator.userAgent,

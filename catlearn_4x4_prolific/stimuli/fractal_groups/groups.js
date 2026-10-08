@@ -1,5 +1,5 @@
 // Written by fractal_stimuli/make_fractal_sets.py: do not edit. Equally distinct fractal groups
-// (DreamSim distance 0.256 +- 0.0075 within a group, >= 0.162 between any two).
+// (DreamSim distance 0.257 +- 0.0075 within a group, >= 0.161 between any two).
 // Keys are the group size: the fractals that show the levels of one side of a block.
 export const FRACTAL_GROUPS = {
   2: [[73, 74], [75, 76], [77, 78], [79, 80], [81, 82], [83, 84], [85, 86], [87, 88], [89, 90], [91, 92], [93, 94], [95, 96]],

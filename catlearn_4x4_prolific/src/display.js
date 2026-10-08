@@ -40,63 +40,29 @@ function fixation() {
     + `<circle r="${ri}" fill="#000"/></svg>`;
 }
 
-// Slot-machine frame: a gold border around the symbols (inside stays grey, so the symbols
-// look the same as without it), a title plate on top and a lever on the right. With
-// pulling = true the lever swings down and back up (the round starting).
-function machine(pulling) {
-  const { center: [cx, cy], size: [w, h], border, color } = LAYOUT.machine;
-  const { length, knob } = LAYOUT.lever;
-  const pivot = [cx + w / 2 + 0.9, cy];
-  return `<div class="machine" style="${at(cx, cy)} width: ${len(w)}; height: ${len(h)};`
-    + ` border: ${len(border)} solid ${color}; border-radius: ${len(1)};`
-    + ` box-shadow: 0 0 0 ${len(0.12)} #6b4e00 inset, 0 0 0 ${len(0.12)} #6b4e00;"></div>`
-    + `<div class="machine-plate" style="${at(cx, cy + h / 2)} background: ${color};`
-    + ` font-size: ${len(0.55)}; padding: ${len(0.12)} ${len(0.7)}; border-radius: ${len(0.3)};">SLOTS</div>`
-    + `<div class="lever${pulling ? ' pulling' : ''}" style="${at(...pivot)} width: ${len(knob)}; height: ${len(length + knob / 2)};">`
-    + `<div class="lever-arm" style="width: ${len(0.3)}; background: ${color}; border-radius: ${len(0.15)};"></div>`
-    + `<div class="lever-knob" style="width: ${len(knob)}; height: ${len(knob)};"></div></div>`
-    + `<div class="lever-hub" style="${at(...pivot)} width: ${len(0.7)}; height: ${len(0.7)}; background: #6b4e00;"></div>`;
-}
-
 /**
- * Coin bar: fill = coins / max (clamped to 0-1), animated from `from` coins on the
- * feedback screen. Sized in window units (it is not a stimulus).
- * @param {{coins, from?, max, label, paid}} b
- */
-export function coinBar(b) {
-  const pct = (c) => `${(100 * Math.min(1, Math.max(0, c / b.max))).toFixed(2)}%`;
-  const from = pct(b.from ?? b.coins);
-  return `<div class="coinbar ${b.paid ? 'paid' : 'practice'}">`
-    + `<div class="coinbar-track"><div class="coinbar-fill" style="--from: ${from}; --to: ${pct(b.coins)};"></div></div>`
-    + `<div class="coinbar-label">${b.label}</div></div>`;
-}
-
-/**
- * One screen. The machine and the fixation are always shown.
+ * One screen: the fixation (between rounds only), or the pair and optionally its feedback.
+ * Participants look freely while the symbols are on, so those screens have no fixation.
  * @param {object} o
+ * @param {boolean} [o.fixation]  the bull's eye in the centre (the gap between rounds)
  * @param {object}  [o.trial]     a design trial: shows its two fractals
- * @param {boolean} [o.pulling]   lever animation (the round starting)
  * @param {string}  [o.outcome]   feedback: colour of the circles around the symbols
- * @param {string}  [o.hint]      small text under the machine (e.g. "press SPACE")
- * @param {string}  [o.bar]       coin bar HTML (coinBar()), at the top of the window
  */
-export function screen(o) {
-  const parts = [machine(o.pulling)];
+export function screen(o = {}) {
+  const parts = [];
   if (o.trial) parts.push(fractalImg(o.trial.fractal_a, 'A'), fractalImg(o.trial.fractal_b, 'B'));
   if (o.outcome) parts.push(outcomeRing('A', o.outcome), outcomeRing('B', o.outcome));
-  parts.push(fixation());
-  if (o.hint) parts.push(`<div class="hint" style="${at(0, LAYOUT.hintY)} font-size: ${len(0.55)};">${o.hint}</div>`);
-  if (o.bar) parts.push(o.bar);
+  if (o.fixation) parts.push(fixation());
   return `<div class="stage">${parts.join('')}</div>`;
 }
 
-// A static example machine for the instructions, drawn into a box `height` px tall
-// (scaled so the whole layout, LAYOUT.extent, fits it). files = [left, right] fractals;
-// symbols = false draws the empty machine (the waiting screen).
-export function exampleMachine(files, { height = 220, outcome = null, symbols = true, hint = null } = {}) {
+// A static example screen for the instructions, drawn into a box `height` px tall (scaled
+// so the whole layout, LAYOUT.extent, fits it). files = [left, right] fractals; symbols =
+// false draws the fixation only (the gap between rounds).
+export function exampleScreen(files, { height = 160, outcome = null, symbols = true } = {}) {
   const t = symbols ? { fractal_a: files[0], fractal_b: files[1] } : null;
   unitPx = height / LAYOUT.extent.height;
-  const html = screen({ trial: t, outcome, hint });
+  const html = screen({ trial: t, outcome, fixation: !symbols });
   unitPx = null;
   const width = Math.round(height * (LAYOUT.extent.width / LAYOUT.extent.height));
   return `<div class="example" style="width: ${width}px; height: ${height}px;">${html}</div>`;

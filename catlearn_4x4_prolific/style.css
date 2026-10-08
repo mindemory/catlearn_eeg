@@ -35,49 +35,16 @@ html, body {
   transform: translate(-50%, -50%);
 }
 
-/* slot-machine frame (sizes and colour set by display.js) */
-.machine {
-  box-sizing: border-box;
+/* bonus tiers table in the instructions */
+.page table.tiers {
+  margin: 8px auto;
+  border-collapse: collapse;
 }
-.machine-plate {
-  color: #3a2a00;
-  font-weight: bold;
-  letter-spacing: 0.3em;
-  white-space: nowrap;
-}
-/* lever: a box hanging from its pivot (the box's bottom centre); pulling flips it down and back */
-.stage > .lever {
-  transform: translate(-50%, -100%);
-  transform-origin: 50% 100%;
-}
-.stage > .lever.pulling {
-  animation: pull 400ms ease-in-out;
-}
-@keyframes pull {
-  0%   { transform: translate(-50%, -100%) scaleY(1); }
-  50%  { transform: translate(-50%, -100%) scaleY(-1); }
-  100% { transform: translate(-50%, -100%) scaleY(1); }
-}
-.lever-arm {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  top: 25%;
-  transform: translateX(-50%);
-}
-.lever-knob {
-  position: absolute;
-  left: 0;
-  top: 0;
-  background: #d62828;
-  border-radius: 50%;
-}
-.lever-hub {
-  border-radius: 50%;
-}
-.hint {
-  color: #d9d9d9;
-  white-space: nowrap;
+.page table.tiers th,
+.page table.tiers td {
+  padding: 3px 14px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* blind-spot measurement (virtual chinrest): bigger, clearer square and ball. The plugin
@@ -108,41 +75,6 @@ html, body {
   border-radius: 50%;
   box-sizing: border-box;
 }
-
-/* coin bar: top of the window; fill animates from --from to --to on the feedback screen */
-.coinbar {
-  display: flex;
-  align-items: center;
-  gap: 1.2vh;
-  font-weight: bold;
-  font-size: 1.9vh;
-  color: #ffd166;
-}
-.stage > .coinbar {
-  left: 50%;
-  top: 3.5vh;
-  transform: translate(-50%, -50%);
-}
-.coinbar-track {
-  width: 32vw;
-  height: 1.3vh;
-  border-radius: 0.65vh;
-  background: rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-.coinbar-fill {
-  height: 100%;
-  width: var(--to);
-  background: #ffd166;
-  animation: coinfill 450ms ease-out;
-}
-.coinbar.practice { color: #d0d0d0; }
-.coinbar.practice .coinbar-fill { background: #d0d0d0; }
-@keyframes coinfill {
-  from { width: var(--from); }
-  to { width: var(--to); }
-}
-
 
 /* ---- text pages ---- */
 .page {
@@ -178,11 +110,6 @@ html, body {
   display: flex;
   justify-content: center;
   gap: 24px;
-}
-.example-bar {
-  display: flex;
-  justify-content: center;
-  margin: 18px 0;
 }
 .example {
   position: relative;

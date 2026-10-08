@@ -112,8 +112,11 @@ def plot_participant(r, session, window, out_dir):
     axes[1, -1].scatter([], [], c=INCORRECT, marker="x", s=20, label="late")
     axes[1, -1].plot([], [], color=FOREGROUND, label="running median")
     axes[1, -1].legend(frameon=False, fontsize=7, loc="upper right")
-    title = (f"{session['participant']}: test type {session['test_type']} ({session['test_first']} first), "
-             f"YES = {str(session['key_yes']).upper()}")
+    if isinstance(session.get("version"), str):            # F/J study: fixed sequence
+        title = f"{session['participant']}: {session['sequence']}, version {session['version']}"
+    else:
+        title = (f"{session['participant']}: test type {session['test_type']} ({session['test_first']} first), "
+                 f"YES = {str(session['key_yes']).upper()}")
     if session["debug"]:
         title += "   [DEBUG RUN: shortened blocks]"
     fig.suptitle(title, fontsize=10)
@@ -149,7 +152,9 @@ def main():
         out = OUT_DIR / pid
         plot_participant(rounds[rounds["participant"] == pid], session, args.window, out)
         summary[summary["participant"] == pid].to_csv(out / "block_summary.csv", index=False)
-        print(f"{pid}{' (debug run)' if session['debug'] else ''}: test type {session['test_type']}, "
+        design = (f"{session['sequence']} ({session['version']})" if isinstance(session.get("version"), str)
+                  else f"test type {session['test_type']}")
+        print(f"{pid}{' (debug run)' if session['debug'] else ''}: {design}, "
               f"{session['n_rounds']} rounds")
         cols = ["block", "rule", "n", "accuracy", "hit_rate", "miss_rate", "fa_rate", "f1", "late_rate", "rt_median"]
         print(summary.loc[summary["participant"] == pid, cols].round(2).to_string(index=False))
