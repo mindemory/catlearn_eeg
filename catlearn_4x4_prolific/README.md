@@ -21,7 +21,9 @@ first study) a plain F/J categorisation task with a performance bonus.
   | response | the two symbols, no fixation (free viewing), until `F` / `J` (either case) | up to 4 s |
   | feedback | green circles around both symbols if correct, red if wrong or too slow; no text | 2 s |
 
-  Rounds follow each other automatically; there is a break screen between blocks.
+  Rounds follow each other automatically; there is a break screen between blocks, which
+  also asks participants to sit at about the same distance from the screen as at the start
+  (the screen calibration is done once, at the start).
 - **No points on screen.** There are no coins, scores or bars during the rounds.
   Participants are told about the bonus in the instructions, see each test block's bonus on
   its break screen, and the total on the final screen.

@@ -155,7 +155,8 @@ function blockTimeline(block, keys, state, isFirstOfPhase, isFirstBlock, opts) {
         text += `\nBonus for this block: ${formatDollars(s.block_bonus_usd)} (so far: ${formatDollars(s.bonus_so_far_usd)})`;
       }
       if (!block.criterion) text += `\n\nYour score in this block: ${s.block_grade}\n\n${s.comment}`;
-      text += '\n\nTake a short break if you like.\nPress SPACE to continue!';
+      text += '\n\nTake a short break if you like.\n'
+        + 'Please sit at about the same distance from the screen as at the start.\nPress SPACE to continue!';
       return `<div class="page preline center">${text}</div>`;
     },
     choices: [KEYS.start],
