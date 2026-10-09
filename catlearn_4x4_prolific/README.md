@@ -335,22 +335,36 @@ Prolific pays bonuses separately from the base pay, after you approve submission
    as the argument, e.g. `python3 tools/bonus_payments.py ~/My\ Drive/DataPipe/catlearn_4x4`;
    `--out` changes the output folder.
 
-   It recomputes every bonus from the test trials, checks it against the `bonus_usd` the
-   experiment showed and saved, and writes two files:
-   - `bonus_payments.txt` (`PROLIFIC_PID,amount` per line)
-   - `bonus_report.csv` (every file with its checks)
+   It recomputes every bonus from the test trials (with the tiers each session saved),
+   checks it against the `bonus_usd` the experiment showed and saved, and writes two files:
+   - `bonus_payments.txt` (`PROLIFIC_PID,amount` per line): only the bonuses **not paid yet**
+   - `bonus_payments_study_<STUDY_ID>.txt`: the same, one file per Prolific study
+   - `bonus_report.csv` (every file with its checks, and when its bonus was paid)
+
+   Bonuses already paid are listed in the ledger `bonus/paid.csv` (prolific_pid, amount_usd,
+   paid_on, note) and left out of the list.
 
    **Skipped:**
-   - pilots (no Prolific ID);
+   - test runs (no Prolific ID);
    - sessions without task trials;
-   - files from the slot-machine pilot builds (task_version 3.x);
+   - files from the slot-machine builds (task_version 3.x);
    - screened-out sessions, which get no bonus (Prolific pays their fixed screen-out reward).
 
    Only finished test blocks earn a bonus. Duplicate IDs are paid once and flagged.
 3. **On Prolific,** open the study → Submissions → **Bulk bonus payments**, and paste the
-   lines for the participants you haven't paid yet.
+   lines of that study's `bonus_payments_study_<STUDY_ID>.txt` (the study ID is in the study's
+   URL on Prolific). Bonuses are paid per study.
+4. **Record the payment:**
 
-If you change `BONUS.tiers` in `src/config.js`, change `TIERS` in the script to match.
+   ```bash
+   python3 tools/bonus_payments.py --mark-paid
+   ```
+
+   This adds the list just paid to `bonus/paid.csv` with today's date, so the next list
+   leaves those participants out.
+
+Each session saves its bonus tiers (`bonus_tiers`); the script pays by them, so changing
+`BONUS.tiers` in `src/config.js` needs no change to the script.
 
 ## Going live on Prolific: checklist
 
