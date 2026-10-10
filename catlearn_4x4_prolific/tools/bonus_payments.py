@@ -53,7 +53,7 @@ csv.field_size_limit(sys.maxsize)   # the 'final' row holds the full interaction
 # BONUS.tiers in src/config.js. Every session saves the tiers it ran with (bonus_tiers, on the
 # final row); the first sessions' files predate that and used FIRST_TIERS.
 FIRST_TIERS = [(0.5, 0.5), (0.6, 1.0), (0.7, 2.0)]       # up to $2 per block
-LEDGER_FIELDS = ["prolific_pid", "amount_usd", "paid_on", "note"]
+LEDGER_FIELDS = ["prolific_pid", "study_id", "amount_usd", "paid_on", "note"]
 
 
 def tiers_for(rows):
@@ -62,11 +62,17 @@ def tiers_for(rows):
 
 
 def read_ledger(path):
-    """Bonuses already paid: prolific_pid -> (amount, paid_on)."""
+    """Bonuses already paid: (prolific_pid, study_id) -> (amount, paid_on). Rows without a
+    study_id (the first entries) match the participant in any study."""
     if not os.path.exists(path):
         return {}
     with open(path, newline="") as f:
-        return {r["prolific_pid"]: (float(r["amount_usd"]), r["paid_on"]) for r in csv.DictReader(f)}
+        return {(r["prolific_pid"], r.get("study_id") or ""): (float(r["amount_usd"]), r["paid_on"])
+                for r in csv.DictReader(f)}
+
+
+def paid_for(ledger, pid, study):
+    return ledger.get((pid, study)) or ledger.get((pid, ""))
 
 
 def block_bonus(p_correct, tiers):
@@ -95,7 +101,7 @@ def main():
     if not files:
         sys.exit(f"no catlearn_online_*.csv files in {args.folder}")
 
-    report, payments, studies, seen = [], {}, {}, set()
+    report, payments, seen = [], {}, set()
     for path in files:
         with open(path, newline="") as f:
             rows = list(csv.DictReader(f))
@@ -123,9 +129,11 @@ def main():
         checks = [f"screened out ({screened}): no bonus"] if screened else []
         if final and abs(float(final["bonus_usd"]) - usd) > 0.005:
             checks.append(f"saved bonus_usd {final['bonus_usd']} != recomputed {usd:.2f}")
-        if pid and pid in seen:
-            checks.append("duplicate PROLIFIC_PID (several files): paid once, check by hand")
-        paid = ledger.get(pid)
+        if pid and (pid, study) in seen:
+            checks.append("duplicate PROLIFIC_PID in this study (several files): paid once, check by hand")
+        elif pid and any(p == pid for p, _ in seen):
+            checks.append("this participant also took another study: each study pays its own bonus")
+        paid = paid_for(ledger, pid, study)
         if paid and abs(paid[0] - usd) > 0.005:
             checks.append(f"ledger says ${paid[0]:.2f} paid on {paid[1]}, bonus is ${usd:.2f}: check by hand")
         report.append({"file": os.path.basename(path), "prolific_pid": pid, "study_id": study, "completed": bool(final),
@@ -133,24 +141,23 @@ def main():
                        "block_p": ";".join(f"{sum(c) / len(c):.3f}" for _, c in sorted(blocks.items(), key=lambda kv: int(kv[0]))),
                        "bonus_usd": f"{usd:.2f}", "paid": paid[1] if paid else "",
                        "checks": "; ".join(checks) or "ok"})
-        if pid and (final or args.include_incomplete) and pid not in seen and usd > 0 and not paid:
-            payments[pid] = usd
-            studies[pid] = study
+        if pid and (final or args.include_incomplete) and (pid, study) not in seen and usd > 0 and not paid:
+            payments[(pid, study)] = usd
         if pid:
-            seen.add(pid)
+            seen.add((pid, study))
 
     out_dir = os.path.expanduser(args.out)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "bonus_payments.txt"), "w") as f:
-        f.writelines(f"{pid},{usd:.2f}\n" for pid, usd in payments.items())
+        f.writelines(f"{pid},{usd:.2f}\n" for (pid, _), usd in payments.items())
     # Prolific pays bonuses per study: one list per Prolific study as well
     for old in glob.glob(os.path.join(out_dir, "bonus_payments_study_*.txt")):
         os.remove(old)
-    for study in sorted(set(studies.values())):
+    for study in sorted({s for _, s in payments}):
+        mine = {pid: usd for (pid, s), usd in payments.items() if s == study}
         with open(os.path.join(out_dir, f"bonus_payments_study_{study}.txt"), "w") as f:
-            f.writelines(f"{pid},{usd:.2f}\n" for pid, usd in payments.items() if studies[pid] == study)
-        n = sum(1 for p in studies.values() if p == study)
-        total = sum(usd for pid, usd in payments.items() if studies[pid] == study)
+            f.writelines(f"{pid},{usd:.2f}\n" for pid, usd in mine.items())
+        n, total = len(mine), sum(mine.values())
         print(f"  study {study}: {n} bonuses, ${total:.2f} -> bonus_payments_study_{study}.txt")
     with open(os.path.join(out_dir, "bonus_report.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(report[0]))
@@ -169,8 +176,8 @@ def main():
             if new:
                 w.writeheader()
             today = datetime.date.today().isoformat()
-            w.writerows({"prolific_pid": pid, "amount_usd": f"{usd:.2f}", "paid_on": today,
-                         "note": "bonus_payments.txt of " + today} for pid, usd in payments.items())
+            w.writerows({"prolific_pid": pid, "study_id": study, "amount_usd": f"{usd:.2f}", "paid_on": today,
+                         "note": "bonus_payments.txt of " + today} for (pid, study), usd in payments.items())
         print(f"recorded {len(payments)} bonuses as paid in {args.ledger}")
     for r in problems:
         print(f"  CHECK {r['file']}: {r['checks']}")
