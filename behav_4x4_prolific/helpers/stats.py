@@ -58,3 +58,34 @@ def mean_sem(rows):
         m = np.nanmean(rows, 0)
         s = np.nanstd(rows, 0, ddof=1) / np.sqrt(np.sum(~np.isnan(rows), 0))
     return m, s
+
+
+def _ranks(x):
+    return np.argsort(np.argsort(x)).astype(float)
+
+
+def _residual(y, z):
+    """y with a linear fit on z (and an intercept) removed."""
+    Z = np.column_stack([np.ones(len(z)), z])
+    beta, *_ = np.linalg.lstsq(Z, y, rcond=None)
+    return y - Z @ beta
+
+
+def perm_corr(x, y, covariate=None, n=N_PERM):
+    """Spearman correlation of x and y (partial on `covariate` if given: ranks residualised on
+    its ranks) and its two-sided permutation p (y shuffled). NaN pairs are dropped."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    keep = ~np.isnan(x) & ~np.isnan(y)
+    z = None
+    if covariate is not None:
+        z = np.asarray(covariate, float)
+        keep &= ~np.isnan(z)
+    x, y = _ranks(x[keep]), _ranks(y[keep])
+    if z is not None:
+        z = _ranks(z[keep])
+        x, y = _residual(x, z), _residual(y, z)
+    if len(x) < 4 or x.std() == 0 or y.std() == 0:
+        return np.nan, np.nan, int(len(x))
+    r = np.corrcoef(x, y)[0, 1]
+    null = np.array([np.corrcoef(x, RNG.permutation(y))[0, 1] for _ in range(n)])
+    return r, (np.sum(np.abs(null) >= abs(r) - 1e-12) + 1) / (n + 1), int(len(x))
