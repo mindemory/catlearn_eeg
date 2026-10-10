@@ -12,13 +12,17 @@ DRIVE_DIR = Path.home() / "My Drive" / "DataPipe" / "catlearn_4x4"    # where Da
 PROLIFIC_DIR = ROOT / "prolific"                 # Prolific demographic exports, saved by hand
 MANUAL_EXCLUSIONS = ROOT / "exclusions_manual.csv"   # participant, reason, decided_on (holds Prolific IDs,
                                                      # so it stays with the data, not in the repository)
+FRACTAL_GROUPS_CSV = Path(__file__).resolve().parents[1] / "catlearn_4x4_prolific" / "stimuli" / "fractal_groups" / "groups.csv"
+                                                 # task fractal file -> candidate in the fractal pool
+FRACTAL_SIMILARITY_DIR = ROOT.parent / "fractal_pool_vivid" / "similarity"   # similarity_<measure>.npy,
+                                                 # row k-1 = candidate k (fractal_stimuli/similarity_matrices.py)
 SESSION_PATTERN = "catlearn_online_*.csv"        # finished sessions (not *.partial.json)
 ARCHIVES = [DATA_DIR / "old_versions"]          # never copied back into DATA_DIR by the Drive sync
 
 # ---------------------------------------------------------------- sessions
 TASK_VERSION_PREFIX = "1."                       # the F/J study; 3.x were the earlier slot-machine builds
 TRIAL_COLUMNS = ["participant", "version", "block", "phase", "rule", "trial_in_block", "rep", "compound",
-                 "level_a", "level_b", "category", "choice", "correct", "timeout", "rt"]
+                 "level_a", "level_b", "fractal_a", "fractal_b", "category", "choice", "correct", "timeout", "rt"]
 
 # ---------------------------------------------------------------- design
 TEST_TYPES = ["VI", "X", "II"]                   # the test blocks, in order, for both versions
@@ -28,12 +32,20 @@ VERSIONS = ["A", "B"]
 # ---------------------------------------------------------------- exclusions and checks
 BIAS_LIMITS = (0.25, 0.75)                       # key bias: P(F) over the answered test trials outside this
 FAST_RT_MS = 250                                 # an answer faster than this counts as fast
+RUSH_FAST_SHARE = 0.20                           # rushing: in some test block, at least this share of the answers
+                                                 # fast and that block at chance, AND the whole test at chance:
+RUSH_CHANCE_ALPHA = 0.05                         # 'at chance' = accuracy not above 0.5 (one-sided binomial p >= this)
 
 # ---------------------------------------------------------------- moving windows (trials, centred)
 WINDOW = 16                                      # learning curves, mode heatmaps (one pass through the pairs)
 EDGE = 48                                        # early vs late: the first and last EDGE trials of a block
 LEVEL_WINDOW = 48                                # per-level and per-pair heatmaps (~12 trials per level)
 CONTRAST_WINDOW = 32                             # version A vs B, modes and levels (~2 trials per pair)
+
+# ---------------------------------------------------------------- stimulus features (B11)
+FEATURES = ["colour", "shape", "perceptual"]     # colour histogram overlap, silhouette overlap, 1 - DreamSim
+PAIR_KERNEL = "product"                          # pair similarity from the two symbols' similarities:
+                                                 # "product" (both similar) or "sum" (either similar)
 
 # ---------------------------------------------------------------- statistics
 SEED = 0

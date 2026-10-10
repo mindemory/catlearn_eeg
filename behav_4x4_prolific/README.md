@@ -10,7 +10,8 @@ the study (both versions, all Prolific studies) is analysed as one dataset.
 |---|---|
 | `params.py` | every parameter: paths, which sessions count, exclusion rules, moving windows, statistics, colours |
 | `helpers/` | the shared code (below) |
-| `B01`–`B10` | one script per analysis; each reads `params.py`, uses `helpers/`, and writes into `analysis/` |
+| `B01`–`B12` | one script per analysis; each reads `params.py`, uses `helpers/`, and writes into `analysis/` |
+| `ANALYSIS_PLAN.md` | the checklist of analyses planned after Peng, Ehrlich, Lee & Murray (2025), with what is done |
 
 | Helper | What it holds |
 |---|---|
@@ -21,6 +22,8 @@ the study (both versions, all Prolific studies) is analysed as one dataset.
 | `helpers/stats.py` | permutation tests (seeded), Benjamini–Hochberg, mean ± SEM |
 | `helpers/plots.py` | the dark theme (`../behav_analyses/plot_style.py`) and the shared plot pieces |
 | `helpers/report.py` | markdown tables |
+| `helpers/features.py` | the fractals' colour, shape and DreamSim similarity per block, and its alignment with the rule's modes |
+| `helpers/kernel.py` | the kernel learner (Peng et al. 2025): likelihood (JAX), simulation, maximum-likelihood fits per participant and per group |
 
 ## Data
 
@@ -34,13 +37,19 @@ Everything lives in `~/Documents/data/catlearn_eeg/catlearn_4x4_prolific/`:
 | `prolific/` | Prolific's demographic export(s) for B05, saved by hand (Submissions page, "Download demographic data") |
 | `bonus/` | the Prolific bonus list from `../catlearn_4x4_prolific/tools/bonus_payments.py`, and `paid.csv`, the ledger of bonuses already paid |
 
-Sessions are kept if they are task_version 1.x, not debug runs, and have at least one trial;
-the loader lists what it leaves out.
+Sessions are kept if they are task_version 1.x, not debug runs, and have at least one trial.
+A participant with several sessions (e.g. someone who took both the A and the B study) is
+analysed on the first only: the later ones come from someone who already knew the task. The
+loader lists what it leaves out.
 
 **Exclusions** (`helpers.data.exclusions`), left out of every average and marked in each
 participant's own figures:
 - **key bias** (automatic): P(F) over the answered test trials outside 0.25–0.75
   (`params.BIAS_LIMITS`);
+- **rushing** (automatic): in some test block at least 20% of the answers faster than 250 ms
+  with that block at chance, and the whole test at chance too ("at chance": accuracy not above
+  0.5, one-sided binomial p ≥ .05; `params.RUSH_FAST_SHARE`, `RUSH_CHANCE_ALPHA`). Someone who
+  rushed one block but learned the others is kept;
 - **manual**: participants listed in `exclusions_manual.csv` (participant, reason,
   decided_on). It sits with the data, not in this repository, because it holds Prolific IDs.
   Add a row to exclude someone by hand.
@@ -58,7 +67,7 @@ skip it:
 ```
 
 ```bash
-for s in B02_mode_heatmaps B03_screening B04_level_heatmaps B05_participants B06_sessions B07_a_vs_b B08_levels_a_vs_b B09_sanity_a_vs_b B10_questionnaire; do ~/miniforge3/envs/kernelbehav/bin/python $s.py --no-sync; done
+for s in B02_mode_heatmaps B03_screening B04_level_heatmaps B05_participants B06_sessions B07_a_vs_b B08_levels_a_vs_b B09_sanity_a_vs_b B10_questionnaire B11_feature_alignment; do ~/miniforge3/envs/kernelbehav/bin/python $s.py --no-sync; done
 ```
 
 | Script | What it does | Outputs (in `analysis/`) |
@@ -73,6 +82,8 @@ for s in B02_mode_heatmaps B03_screening B04_level_heatmaps B05_participants B06
 | `B08_levels_a_vs_b.py` | version A vs B per level and pair, with B's sides swapped in VI and X | `a_vs_b/` |
 | `B09_sanity_a_vs_b.py` | version A vs B on accuracy, F1, RT, response habits and session measures | `a_vs_b/` |
 | `B10_questionnaire.py` | the questionnaire: ratings, strategies, free text, and how they match the data | `questionnaire/` |
+| `B11_feature_alignment.py` | whether the fractals' colour / shape similarity, aligned with each mode of the rule, predicts learning of that mode (per test type, versions pooled) | `features/` |
+| `B12_kernel_recovery.py` | parameter recovery for the kernel learner (model 1: mode weights per block, learning rate, choice sensitivity) on synthetic participants running real sessions | `kernel_recovery/` |
 
 Every script's docstring describes its measures in full. The main ones in brief:
 
@@ -98,3 +109,11 @@ B's mode B (and B's levels are shown in A's terms); in II any A − B pattern re
 was learned before. Differences of per-participant means are tested by permuting the version
 labels (p uncorrected unless stated; B08 also gives BH-adjusted q). A − B heatmaps use their
 own diverging scale (orange: A higher).
+
+**Kernel model (B12, `helpers/kernel.py`).** The learner keeps a value per pair, reset at each
+new block; P(F) = sigmoid(β·value); after feedback the shown pair's value moves toward the
+correct answer by the learning rate, and the kernel K = Σₑ (16 wₑ / dₑ) Pₑ spreads that to the
+other pairs by mode (cst, A, B, AB). Recovery (B12, run on its own since it doesn't depend on
+new data): single participants' parameters are not recoverable (learning rate and β trade off),
+but parameters shared by a group of about 20 are, including the II A:B balance (r ≈ 0.9), so
+the model is fit per version.

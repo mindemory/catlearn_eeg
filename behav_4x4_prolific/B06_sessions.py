@@ -6,6 +6,8 @@ answered, and the outcome (helpers.sessions.session_outcome):
   finished                     reached the final screen (bonus: what the task promised)
   screened out: <reason>       quiz (failed every attempt), practice_type_I (type-I practice
                                not passed within its trials), practice_timeouts, browser_check
+  finished again               a participant's second finished session (e.g. took both the A and
+                               the B study): left out of the analyses, which use the first
   ended at the browser check   window too small (early sessions, before the browser check
                                used the screen-out path)
   unfinished                   only a partial file: returned, timed out, or still running
@@ -47,6 +49,10 @@ def main():
             rows.append(session_outcome(read_rows(f), f.name, True))
     df = pd.DataFrame(rows)
     df = df[df["task_version"].str.startswith(TASK_VERSION_PREFIX)].copy()
+    # a participant who finished more than one session: only the first is analysed (helpers.data)
+    df = df.sort_values("started_at")
+    later = (df["outcome"] == "finished") & df.duplicated(["prolific_pid", "outcome"], keep="first")
+    df.loc[later, "outcome"] = "finished again (repeat participant: left out)"
     done = set(df.loc[df["outcome"] == "finished", "prolific_pid"])
     restarted = (df["outcome"] == "unfinished") & df["prolific_pid"].isin(done)
     df.loc[restarted, "outcome"] = "unfinished (restarted, finished later)"
